@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { User, UserRole } from './user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -102,5 +103,24 @@ export class UsersService {
     await this.userRepository.save(user);
     const { password_hash, ...userWithoutPassword } = user;
     return userWithoutPassword;
+  }
+
+  async deleteUser(
+    requestingUser: User,
+    userId: string,
+  ): Promise<{ message: string }> {
+    if (requestingUser.role !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'Solo un administrador puede eliminar usuarios.',
+      );
+    }
+
+    const user = await this.userRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
+
+    await this.userRepository.delete(userId);
+    return { message: 'Usuario eliminado correctamente.' };
   }
 }

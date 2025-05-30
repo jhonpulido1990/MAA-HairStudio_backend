@@ -6,6 +6,7 @@ import {
   Body,
   UseGuards,
   Request,
+  Delete,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
@@ -41,5 +42,14 @@ export class UsersController {
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<Omit<User, 'password_hash'>> {
     return this.usersService.updateUser(id, updateUserDto);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Delete(':id')
+  async deleteUser(
+    @Request() req: { user: User },
+    @Param('id') id: string,
+  ): Promise<{ message: string }> {
+    return this.usersService.deleteUser(req.user, id);
   }
 }
