@@ -7,6 +7,12 @@ import {
   Index,
 } from 'typeorm';
 
+export enum UserRole {
+  ADMIN = 'admin',
+  USER = 'user',
+  CUSTOM = 'custom',
+}
+
 @Entity('users') // Nombre de la tabla en la base de datos
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -21,6 +27,13 @@ export class User {
 
   @Column({ type: 'varchar', length: 255 })
   password_hash: string; // Almacenaremos la contraseña hasheada
+
+  @Column({
+    type: 'enum',
+    enum: UserRole,
+    default: UserRole.USER, // <-- Esto es correcto
+  })
+  role: UserRole;
 
   @CreateDateColumn({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;

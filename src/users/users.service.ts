@@ -2,8 +2,10 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
-import { User } from './user.entity';
+import { User, UserRole } from './user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -49,5 +51,40 @@ export class UsersService {
 
   async findOneById(id: string): Promise<User | null> {
     return this.userRepository.findOneBy({ id });
+  }
+
+  async findAll(): Promise<Omit<User, 'password_hash'>[]> {
+    // Selecciona todos los campos excepto password_hash para mayor seguridad.
+    // En una aplicación más grande, podrías considerar la paginación aquí.
+    const users = await this.userRepository.find({
+      select: ['id', 'name', 'email', 'createdAt', 'updatedAt', 'role'], // Especifica los campos a devolver
+    });
+    // Si no usas `select` en find, puedes mapear para excluir el password_hash:
+    // return users.map(({ password_hash, ...userWithoutPassword }) => userWithoutPassword);
+    return users;
+  }
+
+  async updateUserRole(
+    userId: string,
+    newRole: UserRole,
+  ): Promise<Omit<User, 'password_hash'>> {
+    console.log('Nuevo rol recibido:', newRole, typeof newRole); // <-- Agrega esto
+
+    // Validar que el role sea válido
+    if (!Object.values(UserRole).includes(newRole)) {
+      throw new BadRequestException('Rol no válido.');
+    }
+
+    const user = await this.userRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
+
+    user.role = newRole;
+    await this.userRepository.save(user);
+
+    // Retornar el usuario sin el password_hash
+    const { password_hash, ...userWithoutPassword } = user;
+    return userWithoutPassword;
   }
 }
