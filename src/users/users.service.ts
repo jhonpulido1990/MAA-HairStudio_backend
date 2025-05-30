@@ -8,6 +8,7 @@ import {
 import { User, UserRole } from './user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { UpdateUserDto } from 'src/auth/dto/update_user';
 
 // DTO interno para la creación de usuarios, usado por AuthService
 export interface InternalCreateUserDto {
@@ -84,6 +85,21 @@ export class UsersService {
     await this.userRepository.save(user);
 
     // Retornar el usuario sin el password_hash
+    const { password_hash, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  }
+
+  async updateUser(
+    userId: string,
+    updateUserDto: UpdateUserDto,
+  ): Promise<Omit<User, 'password_hash'>> {
+    const user = await this.userRepository.findOneBy({ id: userId });
+    if (!user) throw new NotFoundException('Usuario no encontrado.');
+
+    if (updateUserDto.name) user.name = updateUserDto.name;
+    if (updateUserDto.email) user.email = updateUserDto.email;
+
+    await this.userRepository.save(user);
     const { password_hash, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
