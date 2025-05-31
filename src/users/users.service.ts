@@ -59,15 +59,32 @@ export class UsersService {
     return this.userRepository.findOneBy({ id });
   }
 
-  async findAll(): Promise<Omit<User, 'password_hash'>[]> {
-    // Selecciona todos los campos excepto password_hash para mayor seguridad.
-    // En una aplicación más grande, podrías considerar la paginación aquí.
-    const users = await this.userRepository.find({
-      select: ['id', 'name', 'email', 'createdAt', 'updatedAt', 'role'], // Especifica los campos a devolver
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{
+    data: Omit<User, 'password_hash'>[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const [users, total] = await this.userRepository.findAndCount({
+      select: ['id', 'name', 'email', 'createdAt', 'updatedAt', 'role'],
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { createdAt: 'DESC' },
     });
-    // Si no usas `select` en find, puedes mapear para excluir el password_hash:
-    // return users.map(({ password_hash, ...userWithoutPassword }) => userWithoutPassword);
-    return users;
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: users,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   }
 
   async updateUserRole(
@@ -127,10 +144,6 @@ export class UsersService {
     await this.userRepository.delete(userId);
     return { message: 'Usuario eliminado correctamente.' };
   }
-
-  // Debes agregar estos campos a tu entidad User:
-  // @Column({ nullable: true }) resetPasswordToken?: string;
-  // @Column({ nullable: true, type: 'timestamptz' }) resetPasswordExpires?: Date;
 
   async sendPasswordResetEmail(email: string): Promise<{ message: string }> {
     const user = await this.userRepository.findOneBy({ email });

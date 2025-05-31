@@ -8,6 +8,7 @@ import {
   Request,
   Delete,
   Post,
+  Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
@@ -23,9 +24,16 @@ export class UsersController {
   @UseGuards(AuthGuard('jwt'))
   @Get()
   async findAll(
-    @Request() req: { user: User },
-  ): Promise<Omit<User, 'password_hash'>[]> {
-    return this.usersService.findAll();
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ): Promise<{
+    data: Omit<User, 'password_hash'>[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    return this.usersService.findAll(Number(page), Number(limit));
   }
 
   @UseGuards(AuthGuard('jwt'))
