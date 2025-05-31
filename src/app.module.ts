@@ -28,17 +28,21 @@ import { MailerModule } from '@nestjs-modules/mailer';
       }),
       inject: [ConfigService],
     }),
-    MailerModule.forRoot({
-      transport: {
-        service: 'gmail',
-        auth: {
-          user: 'pulidojj174@gmail.com',
-          pass: 'ozpz bwwo ltsb zwxn',
+    MailerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        transport: {
+          service: 'gmail',
+          auth: {
+            user: configService.get<string>('CORREO_PRUEBA'),
+            pass: configService.get<string>('CODIGO_VERIFICACION'),
+          },
         },
-      },
-      defaults: {
-        from: '"No Reply" <no-reply@tudominio.com>',
-      },
+        defaults: {
+          from: '"No Reply" <no-reply@tudominio.com>',
+        },
+      }),
     }),
     UsersModule,
     AuthModule,
