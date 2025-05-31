@@ -73,4 +73,12 @@ export class UsersController {
     const { token, newPassword } = resetPasswordDto;
     return this.usersService.resetPassword(token, newPassword);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':id')
+  async findOne(
+    @Param('id') id: string,
+  ): Promise<Omit<User, 'password_hash'> | null> {
+    return this.usersService.findOneById(id);
+  }
 }

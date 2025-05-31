@@ -55,8 +55,12 @@ export class UsersService {
     return this.userRepository.findOneBy({ email });
   }
 
-  async findOneById(id: string): Promise<User | null> {
-    return this.userRepository.findOneBy({ id });
+  async findOneById(id: string): Promise<Omit<User, 'password_hash'> | null> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      select: ['id', 'name', 'email', 'createdAt', 'updatedAt', 'role'],
+    });
+    return user;
   }
 
   async findAll(
@@ -107,6 +111,7 @@ export class UsersService {
     await this.userRepository.save(user);
 
     // Retornar el usuario sin el password_hash
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password_hash, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
@@ -122,6 +127,7 @@ export class UsersService {
     if (updateUserDto.email) user.email = updateUserDto.email;
 
     await this.userRepository.save(user);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password_hash, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
