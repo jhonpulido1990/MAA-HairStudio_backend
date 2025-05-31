@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { User } from './users/user.entity';
+import { MailerModule } from '@nestjs-modules/mailer';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -26,6 +27,18 @@ import { User } from './users/user.entity';
         ssl: true, // Cambia a true si usas SSL
       }),
       inject: [ConfigService],
+    }),
+    MailerModule.forRoot({
+      transport: {
+        service: 'gmail',
+        auth: {
+          user: 'pulidojj174@gmail.com',
+          pass: 'ozpz bwwo ltsb zwxn',
+        },
+      },
+      defaults: {
+        from: '"No Reply" <no-reply@tudominio.com>',
+      },
     }),
     UsersModule,
     AuthModule,

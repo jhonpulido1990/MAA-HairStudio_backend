@@ -44,4 +44,10 @@ export class User {
     onUpdate: 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
+
+  @Column({ nullable: true })
+  resetPasswordToken?: string;
+
+  @Column({ nullable: true, type: 'timestamptz' })
+  resetPasswordExpires?: Date;
 }

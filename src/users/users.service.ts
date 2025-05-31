@@ -10,6 +10,9 @@ import { User, UserRole } from './user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UpdateUserDto } from 'src/auth/dto/update_user';
+import * as crypto from 'crypto';
+import { MailerService } from '@nestjs-modules/mailer';
+import * as bcrypt from 'bcrypt';
 
 // DTO interno para la creación de usuarios, usado por AuthService
 export interface InternalCreateUserDto {
@@ -23,6 +26,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly mailerService: MailerService, // Asegúrate de tener configurado el MailerModule
   ) {}
 
   async create(userData: InternalCreateUserDto): Promise<User> {
@@ -122,5 +126,56 @@ export class UsersService {
 
     await this.userRepository.delete(userId);
     return { message: 'Usuario eliminado correctamente.' };
+  }
+
+  // Debes agregar estos campos a tu entidad User:
+  // @Column({ nullable: true }) resetPasswordToken?: string;
+  // @Column({ nullable: true, type: 'timestamptz' }) resetPasswordExpires?: Date;
+
+  async sendPasswordResetEmail(email: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOneBy({ email });
+    if (!user) throw new NotFoundException('Usuario no encontrado.');
+
+    // Genera un token seguro
+    const token = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    await this.userRepository.save(user);
+
+    const resetUrl = `https://tu-frontend.com/reset-password?token=${token}`;
+    await this.mailerService.sendMail({
+      to: user.email,
+      subject: 'Recupera tu contraseña',
+      text: `Haz clic en el siguiente enlace para restablecer tu contraseña: ${resetUrl}`,
+      // Puedes agregar html si lo deseas:
+      // html: `<a href="${resetUrl}">Restablecer contraseña</a>`
+    });
+
+    return { message: 'Correo de recuperación enviado.' };
+  }
+
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const user = await this.userRepository.findOneBy({
+      resetPasswordToken: token,
+    });
+    if (
+      !user ||
+      !user.resetPasswordExpires ||
+      user.resetPasswordExpires < new Date()
+    ) {
+      throw new BadRequestException('Token inválido o expirado.');
+    }
+
+    user.password_hash = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    user.resetPasswordExpires = undefined;
+
+    await this.userRepository.save(user);
+    return { message: 'Contraseña actualizada correctamente.' };
   }
 }
