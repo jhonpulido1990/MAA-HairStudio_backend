@@ -5,8 +5,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
-import { User } from './users/user.entity';
 import { MailerModule } from '@nestjs-modules/mailer';
+import { ProductsModule } from './products/products.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -22,7 +22,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
         username: configService.get<string>('PGUSER'),
         password: configService.get<string>('PGPASSWORD'),
         database: configService.get<string>('PGDATABASE'),
-        entities: [User], // Puedes usar [__dirname + '/../**/*.entity{.ts,.js}'] para auto-detectar
+        entities: [__dirname + '/**/*.entity.{js,ts}'], // Puedes usar [__dirname + '/../**/*.entity{.ts,.js}'] para auto-detectar
         synchronize: true, // true para desarrollo (crea tablas automáticamente), false para producción (usa migraciones)
         ssl: true, // Cambia a true si usas SSL
       }),
@@ -46,6 +46,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
     }),
     UsersModule,
     AuthModule,
+    ProductsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
