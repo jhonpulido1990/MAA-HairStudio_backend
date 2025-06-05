@@ -3,11 +3,10 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
-  IsEnum,
   Min,
   MaxLength,
+  IsUUID,
 } from 'class-validator';
-import { ProductCategory } from '../product.entity';
 
 export class CreateProductDto {
   @IsString({ message: 'El nombre debe ser una cadena de texto.' })
@@ -26,14 +25,12 @@ export class CreateProductDto {
   @Min(0, { message: 'El precio no puede ser negativo.' })
   price: number;
 
+  @IsUUID('4', { message: 'El subcategoryId debe ser un UUID válido.' })
+  subcategoryId: string;
+
   @IsNumber({}, { message: 'El stock debe ser un número.' })
   @Min(0, { message: 'El stock no puede ser negativo.' })
   stock: number;
-
-  @IsEnum(ProductCategory, {
-    message: 'La categoría debe ser camping, asado, bebidas o vinos.',
-  })
-  category: ProductCategory;
 
   @IsString({ message: 'La imagen debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'La imagen es obligatoria.' })

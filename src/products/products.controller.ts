@@ -14,12 +14,16 @@ import { AuthGuard } from '@nestjs/passport';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { Product } from './product.entity';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { RolesGuard } from 'src/auth/roles/roles.guard';
+import { Roles } from 'src/auth/roles/roles.decorator';
 
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin', 'custom')
   @Post()
   async create(@Body() createProductDto: CreateProductDto): Promise<Product> {
     return this.productsService.create(createProductDto);
@@ -39,6 +43,25 @@ export class ProductsController {
     return this.productsService.findAll(Number(page), Number(limit));
   }
 
+  @Get('/search')
+  async findByFilters(
+    @Query('name') name?: string,
+    @Query('minPrice') minPrice?: number,
+    @Query('maxPrice') maxPrice?: number,
+    @Query('brand') brand?: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ) {
+    return this.productsService.findByFilters(
+      name,
+      minPrice ? Number(minPrice) : undefined,
+      maxPrice ? Number(maxPrice) : undefined,
+      brand,
+      Number(page),
+      Number(limit),
+    );
+  }
+
   @Get(':id')
   async findOne(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -46,20 +69,50 @@ export class ProductsController {
     return this.productsService.findOneById(id);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin', 'custom')
   @Patch(':id')
   async update(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-    @Body() updateProductDto: Partial<CreateProductDto>,
+    @Body() updateProductDto: UpdateProductDto,
   ): Promise<Product> {
     return this.productsService.update(id, updateProductDto);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin', 'custom')
   @Delete(':id')
   async remove(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ): Promise<{ message: string }> {
     return this.productsService.remove(id);
+  }
+
+  @Get('/by-category/:categoryId')
+  async findByCategory(
+    @Param('categoryId', new ParseUUIDPipe({ version: '4' }))
+    categoryId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ) {
+    return this.productsService.findByCategory(
+      categoryId,
+      Number(page),
+      Number(limit),
+    );
+  }
+
+  @Get('/by-subcategory/:subcategoryId')
+  async findBySubcategory(
+    @Param('subcategoryId', new ParseUUIDPipe({ version: '4' }))
+    subcategoryId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ) {
+    return this.productsService.findBySubcategory(
+      subcategoryId,
+      Number(page),
+      Number(limit),
+    );
   }
 }

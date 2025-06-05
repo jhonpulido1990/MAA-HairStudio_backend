@@ -4,14 +4,9 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
 } from 'typeorm';
-
-export enum ProductCategory {
-  CAMPING = 'camping',
-  ASADO = 'asado',
-  BEBIDAS = 'bebidas',
-  VINOS = 'vinos',
-}
+import { Subcategory } from '../subcategories/subcategory.entity';
 
 @Entity('products')
 export class Product {
@@ -30,11 +25,8 @@ export class Product {
   @Column({ type: 'int' })
   stock: number;
 
-  @Column({
-    type: 'enum',
-    enum: ProductCategory,
-  })
-  category: ProductCategory;
+  @ManyToOne(() => Subcategory, (sub) => sub.products, { eager: true })
+  subcategory: Subcategory;
 
   @Column({ type: 'text' })
   image: string;
