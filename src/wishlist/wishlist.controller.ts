@@ -6,6 +6,7 @@ import {
   Param,
   UseGuards,
   Req,
+  Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { WishlistService } from './wishlist.service';
@@ -38,7 +39,15 @@ export class WishlistController {
   }
 
   @Get()
-  async getWishlist(@Req() req: AuthRequest) {
-    return this.wishlistService.getWishlist(req.user);
+  async getWishlist(
+    @Req() req: AuthRequest,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ) {
+    return this.wishlistService.getWishlist(
+      req.user,
+      Number(page),
+      Number(limit),
+    );
   }
 }

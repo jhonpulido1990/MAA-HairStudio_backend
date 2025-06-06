@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Wishlist } from './wishlist.entity';
@@ -18,6 +22,13 @@ export class WishlistService {
     const product = await this.productRepository.findOneBy({ id: productId });
     if (!product) throw new NotFoundException('Producto no encontrado.');
 
+    const exists = await this.wishlistRepository.findOne({
+      where: { user: { id: user.id }, product: { id: productId } },
+    });
+    if (exists) {
+      throw new BadRequestException('El producto ya está en tu wishlist.');
+    }
+
     const wishlist = this.wishlistRepository.create({ user, product });
     return this.wishlistRepository.save(wishlist);
   }
@@ -34,10 +45,30 @@ export class WishlistService {
     return { message: 'Producto eliminado de la wishlist.' };
   }
 
-  async getWishlist(user: User) {
-    return this.wishlistRepository.find({
+  async getWishlist(user: User, page = 1, limit = 10) {
+    const [items, total] = await this.wishlistRepository.findAndCount({
       where: { user: { id: user.id } },
       relations: ['product'],
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return {
+      data: items.map((item) => ({
+        id: item.product.id,
+        name: item.product.name,
+        image: item.product.image,
+        price: item.product.price,
+        description: item.product.description,
+        brand: item.product.brand,
+        subcategory: item.product.subcategory,
+        dimension: item.product.dimension,
+        weight: item.product.weight,
+        stock: item.product.stock,
+      })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 }
