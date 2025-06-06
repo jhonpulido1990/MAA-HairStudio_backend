@@ -5,7 +5,9 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  OneToMany,
 } from 'typeorm';
+import { Wishlist } from '../wishlist/wishlist.entity';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -50,4 +52,7 @@ export class User {
 
   @Column({ nullable: true, type: 'timestamptz' })
   resetPasswordExpires?: Date;
+
+  @OneToMany(() => Wishlist, (wishlist) => wishlist.user)
+  wishlists: Wishlist[];
 }

@@ -9,6 +9,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { ProductsModule } from './products/products.module';
 import { CategoriesModule } from './categories/categories.module';
 import { SubcategoriesModule } from './subcategories/subcategories.module';
+import { WishlistModule } from './wishlist/wishlist.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -51,6 +52,7 @@ import { SubcategoriesModule } from './subcategories/subcategories.module';
     ProductsModule,
     CategoriesModule,
     SubcategoriesModule,
+    WishlistModule,
   ],
   controllers: [AppController],
   providers: [AppService],
