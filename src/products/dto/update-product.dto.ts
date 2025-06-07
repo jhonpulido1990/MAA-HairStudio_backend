@@ -5,6 +5,7 @@ import {
   IsUUID,
   Min,
   MaxLength,
+  IsBoolean,
 } from 'class-validator';
 
 export class UpdateProductDto {
@@ -53,4 +54,8 @@ export class UpdateProductDto {
   @IsOptional()
   @IsUUID('4', { message: 'El subcategoryId debe ser un UUID válido.' })
   subcategoryId?: string;
+
+  @IsOptional()
+  @IsBoolean({ message: 'El estado debe ser booleano.' })
+  isActive?: boolean;
 }

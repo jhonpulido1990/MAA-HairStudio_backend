@@ -21,6 +21,9 @@ export class WishlistService {
   async addToWishlist(user: User, productId: string): Promise<Wishlist> {
     const product = await this.productRepository.findOneBy({ id: productId });
     if (!product) throw new NotFoundException('Producto no encontrado.');
+    if (product.isActive === false) {
+      throw new BadRequestException('El producto no está disponible.');
+    }
 
     const exists = await this.wishlistRepository.findOne({
       where: { user: { id: user.id }, product: { id: productId } },
@@ -53,18 +56,20 @@ export class WishlistService {
       take: limit,
     });
     return {
-      data: items.map((item) => ({
-        id: item.product.id,
-        name: item.product.name,
-        image: item.product.image,
-        price: item.product.price,
-        description: item.product.description,
-        brand: item.product.brand,
-        subcategory: item.product.subcategory,
-        dimension: item.product.dimension,
-        weight: item.product.weight,
-        stock: item.product.stock,
-      })),
+      data: items
+        .filter((item) => item.product.isActive !== false)
+        .map((item) => ({
+          id: item.product.id,
+          name: item.product.name,
+          image: item.product.image,
+          price: item.product.price,
+          description: item.product.description,
+          brand: item.product.brand,
+          subcategory: item.product.subcategory,
+          dimension: item.product.dimension,
+          weight: item.product.weight,
+          stock: item.product.stock,
+        })),
       total,
       page,
       limit,

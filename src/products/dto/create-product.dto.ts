@@ -6,6 +6,7 @@ import {
   Min,
   MaxLength,
   IsUUID,
+  IsBoolean,
 } from 'class-validator';
 
 export class CreateProductDto {
@@ -58,4 +59,8 @@ export class CreateProductDto {
     message: 'La dimensión no puede superar los 100 caracteres.',
   })
   dimension?: string;
+
+  @IsOptional()
+  @IsBoolean({ message: 'El estado debe ser booleano.' })
+  isActive?: boolean;
 }

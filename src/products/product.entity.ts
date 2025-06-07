@@ -49,4 +49,7 @@ export class Product {
     onUpdate: 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
+
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
 }

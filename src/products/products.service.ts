@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './product.entity';
@@ -42,6 +46,7 @@ export class ProductsService {
     totalPages: number;
   }> {
     const [products, total] = await this.productRepository.findAndCount({
+      where: { isActive: true },
       skip: (page - 1) * limit,
       take: limit,
       order: { createdAt: 'DESC' },
@@ -54,7 +59,13 @@ export class ProductsService {
   }
 
   async findOneById(id: string): Promise<Product> {
-    const product = await this.productRepository.findOneBy({ id });
+    const product = await this.productRepository.findOneBy({
+      id,
+      isActive: true,
+    });
+    if (product?.isActive === false) {
+      throw new BadRequestException('El producto no está disponible.');
+    }
     if (!product) throw new NotFoundException('Producto no encontrado.');
     return product;
   }
@@ -115,6 +126,7 @@ export class ProductsService {
       .leftJoinAndSelect('product.subcategory', 'subcategory')
       .leftJoinAndSelect('subcategory.category', 'category')
       .where('category.id = :categoryId', { categoryId })
+      .andWhere('product.isActive = :isActive', { isActive: true })
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
@@ -143,7 +155,7 @@ export class ProductsService {
       throw new NotFoundException('Subcategoría no encontrada.');
 
     const [products, total] = await this.productRepository.findAndCount({
-      where: { subcategory: { id: subcategoryId } },
+      where: { subcategory: { id: subcategoryId }, isActive: true },
       relations: ['subcategory', 'subcategory.category'],
       skip: (page - 1) * limit,
       take: limit,
@@ -189,6 +201,7 @@ export class ProductsService {
     }
 
     query
+      .where('product.isActive = :isActive', { isActive: true })
       .skip((page - 1) * limit)
       .take(limit)
       .orderBy('product.createdAt', 'DESC');

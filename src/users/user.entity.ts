@@ -8,6 +8,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Wishlist } from '../wishlist/wishlist.entity';
+import { Cart } from '../cart/cart.entity';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -55,4 +56,7 @@ export class User {
 
   @OneToMany(() => Wishlist, (wishlist) => wishlist.user)
   wishlists: Wishlist[];
+
+  @OneToMany(() => Cart, (cart) => cart.user)
+  carts: Cart[];
 }
