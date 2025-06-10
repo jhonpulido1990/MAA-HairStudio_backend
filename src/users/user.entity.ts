@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Wishlist } from '../wishlist/wishlist.entity';
 import { Cart } from '../cart/cart.entity';
+import { Order } from 'src/orders/order.entity';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -59,4 +60,7 @@ export class User {
 
   @OneToMany(() => Cart, (cart) => cart.user)
   carts: Cart[];
+
+  @OneToMany(() => Order, (order) => order.user)
+  orders: Order[];
 }

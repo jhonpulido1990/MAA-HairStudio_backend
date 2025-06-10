@@ -11,6 +11,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { SubcategoriesModule } from './subcategories/subcategories.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { CartModule } from './cart/cart.module';
+import { OrdersModule } from './orders/orders.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -55,6 +56,7 @@ import { CartModule } from './cart/cart.module';
     SubcategoriesModule,
     WishlistModule,
     CartModule,
+    OrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
