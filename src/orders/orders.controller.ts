@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto, UpdateOrderStatusDto } from './dto/create-order.dto';
+import { UpdateOrderStatusDto } from './dto/create-order.dto';
 import { Request } from 'express';
 import { User } from '../users/user.entity';
 import { Roles } from 'src/auth/roles/roles.decorator';
@@ -26,8 +26,8 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
-  async createOrder(@Req() req: AuthRequest, @Body() dto: CreateOrderDto) {
-    return this.ordersService.createOrder(req.user, dto);
+  async createOrderFromCart(@Req() req: AuthRequest) {
+    return this.ordersService.createOrderFromCart(req.user);
   }
 
   @Get()

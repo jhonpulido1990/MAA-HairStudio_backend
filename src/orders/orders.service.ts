@@ -4,15 +4,16 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Order } from './order.entity';
 import { OrderItem } from './order-item.entity';
 import { Product } from '../products/product.entity';
 import { User } from '../users/user.entity';
-import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './order-status.enum';
 import { OrderHistory } from './order-history.entity';
 import { MailerService } from '@nestjs-modules/mailer';
+import { CartItem } from '../cart/cart-item.entity';
+import { Cart } from '../cart/cart.entity';
 
 export interface PaginatedOrderResponse {
   data: Order[];
@@ -34,6 +35,7 @@ export class OrdersService {
     @InjectRepository(OrderHistory)
     private readonly orderHistoryRepository: Repository<OrderHistory>,
     private readonly mailerService: MailerService,
+    private readonly dataSource: DataSource, // <--- agrega esto
   ) {}
 
   async sendOrderConfirmationEmail(userEmail: string, orderId: string) {
@@ -46,51 +48,59 @@ export class OrdersService {
     });
   }
 
-  async createOrder(user: User, dto: CreateOrderDto): Promise<Order> {
-    if (!dto.items || dto.items.length === 0) {
-      throw new BadRequestException(
-        'La orden debe tener al menos un producto.',
-      );
-    }
-
-    let total = 0;
-    const items: OrderItem[] = [];
-
-    for (const itemDto of dto.items) {
-      const product = await this.productRepository.findOneBy({
-        id: itemDto.productId,
-        isActive: true,
+  async createOrderFromCart(user: User): Promise<Order> {
+    return await this.dataSource.transaction(async (manager) => {
+      const cart = await manager.getRepository(Cart).findOne({
+        where: { user: { id: user.id } },
+        relations: ['items', 'items.product'],
       });
-      if (!product)
-        throw new NotFoundException('Producto no encontrado o inactivo.');
-      if (product.stock < itemDto.quantity)
-        throw new BadRequestException('Stock insuficiente.');
+      if (!cart || cart.items.length === 0) {
+        throw new BadRequestException('El carrito está vacío.');
+      }
 
-      const orderItem = this.orderItemRepository.create({
-        product,
-        quantity: itemDto.quantity,
-        price: product.price,
+      let total = 0;
+      const orderItems: OrderItem[] = [];
+
+      for (const cartItem of cart.items) {
+        const product = await manager.getRepository(Product).findOneBy({
+          id: cartItem.product.id,
+          isActive: true,
+        });
+        if (!product)
+          throw new NotFoundException('Producto no encontrado o inactivo.');
+        if (product.stock < cartItem.quantity)
+          throw new BadRequestException(
+            `Stock insuficiente para ${product.name}.`,
+          );
+
+        const orderItem = manager.getRepository(OrderItem).create({
+          product,
+          quantity: cartItem.quantity,
+          price: product.price,
+        });
+        orderItems.push(orderItem);
+        total += product.price * cartItem.quantity;
+
+        // Descontar stock
+        product.stock -= cartItem.quantity;
+        await manager.getRepository(Product).save(product);
+      }
+
+      const order = manager.getRepository(Order).create({
+        user,
+        items: orderItems,
+        total,
+        status: OrderStatus.PENDING,
       });
-      items.push(orderItem);
-      total += product.price * itemDto.quantity;
+      const nuevaOrden = await manager.getRepository(Order).save(order);
 
-      // Opcional: Descontar stock
-      product.stock -= itemDto.quantity;
-      await this.productRepository.save(product);
-    }
+      // Vaciar el carrito
+      await manager.getRepository(CartItem).delete({ cart: { id: cart.id } });
 
-    const order = this.orderRepository.create({
-      user,
-      items,
-      total,
-      status: OrderStatus.PENDING,
+      // (Opcional) Enviar email fuera de la transacción
+
+      return nuevaOrden;
     });
-    const nuevaOrden = await this.orderRepository.save(order);
-
-    // Enviar email de confirmación
-    await this.sendOrderConfirmationEmail(user.email, nuevaOrden.id);
-
-    return nuevaOrden;
   }
 
   async findAll(
@@ -131,58 +141,66 @@ export class OrdersService {
     status: OrderStatus,
     admin: User,
   ): Promise<Order> {
-    const order = await this.orderRepository.findOneBy({ id: orderId });
-    if (!order) throw new NotFoundException('Orden no encontrada.');
+    return await this.dataSource.transaction(async (manager) => {
+      const order = await manager
+        .getRepository(Order)
+        .findOneBy({ id: orderId });
+      if (!order) throw new NotFoundException('Orden no encontrada.');
 
-    const oldStatus = order.status;
-    order.status = status;
-    const savedOrder = await this.orderRepository.save(order);
+      const oldStatus = order.status;
+      order.status = status;
+      const savedOrder = await manager.getRepository(Order).save(order);
 
-    // Guardar historial
-    const history = this.orderHistoryRepository.create({
-      order,
-      oldStatus,
-      newStatus: status,
-      changedBy: admin,
+      // Guardar historial
+      const history = this.orderHistoryRepository.create({
+        order,
+        oldStatus,
+        newStatus: status,
+        changedBy: admin,
+      });
+      await manager.getRepository(OrderHistory).save(history);
+
+      // Notificación (fuera de la transacción si lo deseas)
+      // await this.notifyStatusChange(order, oldStatus, status);
+
+      return savedOrder;
     });
-    await this.orderHistoryRepository.save(history);
-
-    // Notificación (ver más abajo)
-    // await this.notifyStatusChange(order, oldStatus, status);
-
-    return savedOrder;
   }
 
   async cancelOrder(user: User, orderId: string): Promise<Order> {
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId, user: { id: user.id } },
-      relations: ['items', 'items.product'],
+    return await this.dataSource.transaction(async (manager) => {
+      const order = await manager.getRepository(Order).findOne({
+        where: { id: orderId, user: { id: user.id } },
+        relations: ['items', 'items.product'],
+      });
+      if (!order) throw new NotFoundException('Orden no encontrada.');
+      if (order.status !== OrderStatus.PENDING) {
+        throw new BadRequestException(
+          'Solo puedes cancelar órdenes pendientes.',
+        );
+      }
+      order.status = OrderStatus.CANCELLED;
+      await manager.getRepository(Order).save(order);
+
+      // Rollback de stock
+      for (const item of order.items) {
+        item.product.stock += item.quantity;
+        await manager.getRepository(Product).save(item.product);
+      }
+
+      // Guardar historial
+      const history = this.orderHistoryRepository.create({
+        order,
+        oldStatus: OrderStatus.PENDING,
+        newStatus: OrderStatus.CANCELLED,
+        changedBy: user,
+      });
+      await manager.getRepository(OrderHistory).save(history);
+
+      // Notificación (fuera de la transacción si lo deseas)
+      // await this.notifyStatusChange(order, OrderStatus.PENDING, OrderStatus.CANCELLED);
+
+      return order;
     });
-    if (!order) throw new NotFoundException('Orden no encontrada.');
-    if (order.status !== OrderStatus.PENDING) {
-      throw new BadRequestException('Solo puedes cancelar órdenes pendientes.');
-    }
-    order.status = OrderStatus.CANCELLED;
-    await this.orderRepository.save(order);
-
-    // Rollback de stock
-    for (const item of order.items) {
-      item.product.stock += item.quantity;
-      await this.productRepository.save(item.product);
-    }
-
-    // Guardar historial
-    const history = this.orderHistoryRepository.create({
-      order,
-      oldStatus: OrderStatus.PENDING,
-      newStatus: OrderStatus.CANCELLED,
-      changedBy: user,
-    });
-    await this.orderHistoryRepository.save(history);
-
-    // Notificación (ver más abajo)
-    // await this.notifyStatusChange(order, OrderStatus.PENDING, OrderStatus.CANCELLED);
-
-    return order;
   }
 }
