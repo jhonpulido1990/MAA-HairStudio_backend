@@ -26,8 +26,11 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
-  async createOrderFromCart(@Req() req: AuthRequest) {
-    return this.ordersService.createOrderFromCart(req.user);
+  async createOrderFromCart(
+    @Req() req: AuthRequest,
+    @Body('addressId') addressId: string,
+  ) {
+    return this.ordersService.createOrderFromCart(req.user, addressId);
   }
 
   @Get()

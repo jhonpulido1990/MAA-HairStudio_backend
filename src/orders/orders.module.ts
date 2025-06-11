@@ -8,6 +8,7 @@ import { OrdersController } from './orders.controller';
 import { User } from 'src/users/user.entity';
 import { OrderHistory } from './order-history.entity';
 import { Cart } from 'src/cart/cart.entity';
+import { AddressModule } from '../address/address.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { Cart } from 'src/cart/cart.entity';
       OrderHistory,
       Cart,
     ]),
+    AddressModule,
   ],
   providers: [OrdersService],
   controllers: [OrdersController],

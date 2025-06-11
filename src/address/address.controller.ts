@@ -1,0 +1,61 @@
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { AddressService } from './address.service';
+import { CreateAddressDto } from './dto/create-address.dto';
+import { UpdateAddressDto } from './dto/update-address.dto';
+import { Request } from 'express';
+import { User } from '../users/user.entity';
+
+interface AuthRequest extends Request {
+  user: User;
+}
+
+@UseGuards(AuthGuard('jwt'))
+@Controller('address')
+export class AddressController {
+  constructor(private readonly addressService: AddressService) {}
+
+  @Post()
+  async create(@Req() req: AuthRequest, @Body() dto: CreateAddressDto) {
+    return this.addressService.create(req.user, dto);
+  }
+
+  @Get()
+  async findAll(@Req() req: AuthRequest) {
+    return this.addressService.findAll(req.user);
+  }
+
+  @Get(':id')
+  async findOne(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.addressService.findOne(req.user, id);
+  }
+
+  @Patch(':id')
+  async update(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() dto: UpdateAddressDto,
+  ) {
+    return this.addressService.update(req.user, id, dto);
+  }
+
+  @Delete(':id')
+  async remove(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.addressService.remove(req.user, id);
+  }
+
+  @Patch(':id/principal')
+  async setPrincipal(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.addressService.setPrincipal(req.user, id);
+  }
+}

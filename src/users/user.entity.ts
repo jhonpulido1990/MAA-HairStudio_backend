@@ -10,6 +10,7 @@ import {
 import { Wishlist } from '../wishlist/wishlist.entity';
 import { Cart } from '../cart/cart.entity';
 import { Order } from 'src/orders/order.entity';
+import { Address } from '../address/address.entity';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -63,4 +64,7 @@ export class User {
 
   @OneToMany(() => Order, (order) => order.user)
   orders: Order[];
+
+  @OneToMany(() => Address, (address) => address.user)
+  addresses: Address[];
 }

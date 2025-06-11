@@ -35,4 +35,20 @@ export class Order {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @Column('json')
+  shippingAddressSnapshot: {
+    nombreCompleto: string;
+    telefono: string;
+    telefonoAlternativo?: string;
+    email?: string;
+    pais: string;
+    departamento: string;
+    ciudad: string;
+    codigoPostal: string;
+    direccionLinea1: string;
+    direccionLinea2?: string;
+    referencia?: string;
+    notasEntrega?: string;
+  };
 }

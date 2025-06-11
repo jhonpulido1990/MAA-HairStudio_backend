@@ -14,6 +14,7 @@ import { OrderHistory } from './order-history.entity';
 import { MailerService } from '@nestjs-modules/mailer';
 import { CartItem } from '../cart/cart-item.entity';
 import { Cart } from '../cart/cart.entity';
+import { AddressService } from '../address/address.service'; // Asegúrate de importar el servicio de direcciones
 
 export interface PaginatedOrderResponse {
   data: Order[];
@@ -36,6 +37,7 @@ export class OrdersService {
     private readonly orderHistoryRepository: Repository<OrderHistory>,
     private readonly mailerService: MailerService,
     private readonly dataSource: DataSource, // <--- agrega esto
+    private readonly addressService: AddressService, // <-- Typed AddressService, replace with actual AddressService type if available
   ) {}
 
   async sendOrderConfirmationEmail(userEmail: string, orderId: string) {
@@ -48,8 +50,9 @@ export class OrdersService {
     });
   }
 
-  async createOrderFromCart(user: User): Promise<Order> {
+  async createOrderFromCart(user: User, addressId: string): Promise<Order> {
     return await this.dataSource.transaction(async (manager) => {
+      // 1. Obtener el carrito
       const cart = await manager.getRepository(Cart).findOne({
         where: { user: { id: user.id } },
         relations: ['items', 'items.product'],
@@ -58,9 +61,29 @@ export class OrdersService {
         throw new BadRequestException('El carrito está vacío.');
       }
 
+      // 2. Obtener la dirección seleccionada
+      const shippingAddress = await this.addressService.findOne(
+        user,
+        addressId,
+      );
+      const shippingAddressSnapshot = {
+        nombreCompleto: shippingAddress.nombreCompleto,
+        telefono: shippingAddress.telefono,
+        telefonoAlternativo: shippingAddress.telefonoAlternativo,
+        email: shippingAddress.email,
+        pais: shippingAddress.pais,
+        departamento: shippingAddress.departamento,
+        ciudad: shippingAddress.ciudad,
+        codigoPostal: shippingAddress.codigoPostal,
+        direccionLinea1: shippingAddress.direccionLinea1,
+        direccionLinea2: shippingAddress.direccionLinea2,
+        referencia: shippingAddress.referencia,
+        notasEntrega: shippingAddress.notasEntrega,
+      };
+
+      // 3. Procesar los productos del carrito (igual que antes)
       let total = 0;
       const orderItems: OrderItem[] = [];
-
       for (const cartItem of cart.items) {
         const product = await manager.getRepository(Product).findOneBy({
           id: cartItem.product.id,
@@ -86,18 +109,18 @@ export class OrdersService {
         await manager.getRepository(Product).save(product);
       }
 
+      // 4. Crear la orden con el snapshot de dirección
       const order = manager.getRepository(Order).create({
         user,
         items: orderItems,
         total,
         status: OrderStatus.PENDING,
+        shippingAddressSnapshot,
       });
       const nuevaOrden = await manager.getRepository(Order).save(order);
 
-      // Vaciar el carrito
+      // 5. Vaciar el carrito
       await manager.getRepository(CartItem).delete({ cart: { id: cart.id } });
-
-      // (Opcional) Enviar email fuera de la transacción
 
       return nuevaOrden;
     });
