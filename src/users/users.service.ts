@@ -55,11 +55,31 @@ export class UsersService {
     return this.userRepository.findOneBy({ email });
   }
 
-  async findOneById(id: string): Promise<Omit<User, 'password_hash'> | null> {
+  async findOneById(
+    requestingUser: User,
+    userId: string,
+  ): Promise<Omit<User, 'password_hash'> | null> {
+    if (
+      requestingUser.id !== userId &&
+      requestingUser.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException('No tienes permisos para ver este usuario.');
+    }
     const user = await this.userRepository.findOne({
-      where: { id },
+      where: { id: userId },
       select: ['id', 'name', 'email', 'createdAt', 'updatedAt', 'role'],
     });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
+    return user;
+  }
+
+  async findUserById(userId: string): Promise<User | null> {
+    const user = await this.userRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
     return user;
   }
 
@@ -117,9 +137,20 @@ export class UsersService {
   }
 
   async updateUser(
+    requestingUser: User,
     userId: string,
     updateUserDto: UpdateUserDto,
   ): Promise<Omit<User, 'password_hash'>> {
+    // Solo el dueño o un admin puede actualizar
+    if (
+      requestingUser.id !== userId &&
+      requestingUser.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException(
+        'No tienes permisos para actualizar este usuario.',
+      );
+    }
+
     const user = await this.userRepository.findOneBy({ id: userId });
     if (!user) throw new NotFoundException('Usuario no encontrado.');
 
@@ -127,6 +158,7 @@ export class UsersService {
     if (updateUserDto.email) user.email = updateUserDto.email;
 
     await this.userRepository.save(user);
+    // Retornar el usuario sin el password_hash
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password_hash, ...userWithoutPassword } = user;
     return userWithoutPassword;
@@ -149,6 +181,15 @@ export class UsersService {
 
     await this.userRepository.delete(userId);
     return { message: 'Usuario eliminado correctamente.' };
+  }
+
+  async deleteOwnAccount(user: User): Promise<{ message: string }> {
+    const existingUser = await this.userRepository.findOneBy({ id: user.id });
+    if (!existingUser) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
+    await this.userRepository.delete(user.id);
+    return { message: 'Tu cuenta y todos tus datos han sido eliminados.' };
   }
 
   async sendPasswordResetEmail(email: string): Promise<{ message: string }> {

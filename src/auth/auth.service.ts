@@ -77,10 +77,10 @@ export class AuthService {
   async validateUserById(
     id: string,
   ): Promise<Omit<User, 'password_hash'> | null> {
-    const user = await this.usersService.findOneById(id);
+    const user = await this.usersService.findUserById(id);
     if (!user) return null;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password_hash, ...result } = user as User;
+    const { password_hash, ...result } = user;
     return result;
   }
 }

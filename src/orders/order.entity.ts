@@ -10,6 +10,21 @@ import { User } from '../users/user.entity';
 import { OrderItem } from './order-item.entity';
 import { OrderStatus } from './order-status.enum';
 
+export type ShippingAddressSnapshotType = {
+  nombreCompleto: string;
+  telefono: string;
+  telefonoAlternativo?: string;
+  email?: string;
+  pais: string;
+  departamento: string;
+  ciudad: string;
+  codigoPostal: string;
+  direccionLinea1: string;
+  direccionLinea2?: string;
+  referencia?: string;
+  notasEntrega?: string;
+};
+
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn('uuid')
@@ -36,19 +51,6 @@ export class Order {
   @CreateDateColumn()
   createdAt: Date;
 
-  @Column('json')
-  shippingAddressSnapshot: {
-    nombreCompleto: string;
-    telefono: string;
-    telefonoAlternativo?: string;
-    email?: string;
-    pais: string;
-    departamento: string;
-    ciudad: string;
-    codigoPostal: string;
-    direccionLinea1: string;
-    direccionLinea2?: string;
-    referencia?: string;
-    notasEntrega?: string;
-  };
+  @Column('json', { nullable: true })
+  shippingAddressSnapshot: ShippingAddressSnapshotType;
 }
