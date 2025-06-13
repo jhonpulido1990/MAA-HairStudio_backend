@@ -9,6 +9,7 @@ import {
   UseGuards,
   Query,
   ParseUUIDPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ProductsService } from './products.service';
@@ -64,7 +65,16 @@ export class ProductsController {
 
   @Get(':id')
   async findOne(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
   ): Promise<Product> {
     return this.productsService.findOneById(id);
   }
@@ -73,7 +83,16 @@ export class ProductsController {
   @Roles('admin', 'custom')
   @Patch(':id')
   async update(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
     @Body() updateProductDto: UpdateProductDto,
   ): Promise<Product> {
     return this.productsService.update(id, updateProductDto);
@@ -83,14 +102,33 @@ export class ProductsController {
   @Roles('admin', 'custom')
   @Delete(':id')
   async remove(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
   ): Promise<{ message: string }> {
     return this.productsService.remove(id);
   }
 
   @Get('/by-category/:categoryId')
   async findByCategory(
-    @Param('categoryId', new ParseUUIDPipe({ version: '4' }))
+    @Param(
+      'categoryId',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException(
+            'El categoryId debe tener formato UUID v4 válido.',
+          ),
+      }),
+    )
     categoryId: string,
     @Query('page') page = 1,
     @Query('limit') limit = 10,
@@ -104,7 +142,17 @@ export class ProductsController {
 
   @Get('/by-subcategory/:subcategoryId')
   async findBySubcategory(
-    @Param('subcategoryId', new ParseUUIDPipe({ version: '4' }))
+    @Param(
+      'subcategoryId',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException(
+            'El subcategoryId debe tener formato UUID v4 válido.',
+          ),
+      }),
+    )
     subcategoryId: string,
     @Query('page') page = 1,
     @Query('limit') limit = 10,

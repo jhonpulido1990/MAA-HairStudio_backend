@@ -8,6 +8,7 @@ import {
   Req,
   Patch,
   Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { OrdersService } from './orders.service';
@@ -15,6 +16,7 @@ import { UpdateOrderStatusDto } from './dto/create-order.dto';
 import { Request } from 'express';
 import { User } from '../users/user.entity';
 import { Roles } from 'src/auth/roles/roles.decorator';
+import { ParseUUIDPipe } from '@nestjs/common/pipes';
 
 interface AuthRequest extends Request {
   user: User;
@@ -28,7 +30,18 @@ export class OrdersController {
   @Post()
   async createOrderFromCart(
     @Req() req: AuthRequest,
-    @Body('addressId') addressId: string,
+    @Body(
+      'addressId',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException(
+            'El addressId debe tener formato UUID válido.',
+          ),
+      }),
+    )
+    addressId: string,
   ) {
     return this.ordersService.createOrderFromCart(req.user, addressId);
   }
@@ -43,7 +56,21 @@ export class OrdersController {
   }
 
   @Get(':orderId')
-  async findOne(@Req() req: AuthRequest, @Param('orderId') orderId: string) {
+  async findOne(
+    @Req() req: AuthRequest,
+    @Param(
+      'orderId',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException(
+            'El orderId debe tener formato UUID v4 válido.',
+          ),
+      }),
+    )
+    orderId: string,
+  ) {
     return this.ordersService.findOne(req.user, orderId);
   }
 
@@ -51,7 +78,18 @@ export class OrdersController {
   @Roles('admin')
   async updateStatusAsAdmin(
     @Req() req: AuthRequest,
-    @Param('orderId') orderId: string,
+    @Param(
+      'orderId',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException(
+            'El orderId debe tener formato UUID v4 válido.',
+          ),
+      }),
+    )
+    orderId: string,
     @Body() dto: UpdateOrderStatusDto,
   ) {
     return this.ordersService.updateStatusAsAdmin(
@@ -64,7 +102,18 @@ export class OrdersController {
   @Patch(':orderId/cancel')
   async cancelOrder(
     @Req() req: AuthRequest,
-    @Param('orderId') orderId: string,
+    @Param(
+      'orderId',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException(
+            'El orderId debe tener formato UUID v4 válido.',
+          ),
+      }),
+    )
+    orderId: string,
   ) {
     return this.ordersService.cancelOrder(req.user, orderId);
   }

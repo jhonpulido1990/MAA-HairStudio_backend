@@ -7,6 +7,8 @@ import {
   UseGuards,
   Req,
   Query,
+  ParseUUIDPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { WishlistService } from './wishlist.service';
@@ -25,7 +27,18 @@ export class WishlistController {
   @Post(':productId')
   async addToWishlist(
     @Req() req: AuthRequest,
-    @Param('productId') productId: string,
+    @Param(
+      'productId',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException(
+            'El productId debe tener formato UUID v4 válido.',
+          ),
+      }),
+    )
+    productId: string,
   ) {
     return this.wishlistService.addToWishlist(req.user, productId);
   }
@@ -33,7 +46,18 @@ export class WishlistController {
   @Delete(':productId')
   async removeFromWishlist(
     @Req() req: AuthRequest,
-    @Param('productId') productId: string,
+    @Param(
+      'productId',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException(
+            'El productId debe tener formato UUID v4 válido.',
+          ),
+      }),
+    )
+    productId: string,
   ) {
     return this.wishlistService.removeFromWishlist(req.user, productId);
   }

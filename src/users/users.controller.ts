@@ -11,6 +11,7 @@ import {
   Query,
   Req,
   ParseUUIDPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
@@ -45,7 +46,16 @@ export class UsersController {
   @Roles('admin')
   @Patch(':id/role')
   async updateRole(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
     @Body() updateUserRoleDto: UpdateUserRoleDto,
   ): Promise<Omit<User, 'password_hash'>> {
     return this.usersService.updateUserRole(id, updateUserRoleDto.role);
@@ -55,7 +65,16 @@ export class UsersController {
   @Patch(':id')
   async updateUser(
     @Req() req: { user: User },
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<Omit<User, 'password_hash'>> {
     return this.usersService.updateUser(req.user, id, updateUserDto);
@@ -66,7 +85,16 @@ export class UsersController {
   @Delete(':id')
   async deleteUser(
     @Request() req: { user: User },
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
   ): Promise<{ message: string }> {
     return this.usersService.deleteUser(req.user, id);
   }
@@ -86,7 +114,16 @@ export class UsersController {
   @Get(':id')
   async findOne(
     @Req() req: { user: User },
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
   ): Promise<Omit<User, 'password_hash'> | null> {
     return this.usersService.findOneById(req.user, id);
   }

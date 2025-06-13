@@ -7,6 +7,8 @@ import {
   Body,
   Param,
   UseGuards,
+  ParseUUIDPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { SubcategoriesService } from './subcategories.service';
 import { CreateSubcategoryDto } from './dto/create-subcategory.dto';
@@ -31,21 +33,55 @@ export class SubcategoriesController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
+  ) {
     return this.subcategoriesService.findOne(id);
   }
 
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('admin')
-  async update(@Param('id') id: string, @Body() dto: CreateSubcategoryDto) {
+  async update(
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
+    @Body() dto: CreateSubcategoryDto,
+  ) {
     return this.subcategoriesService.update(id, dto);
   }
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('admin')
-  async remove(@Param('id') id: string) {
+  async remove(
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
+  ) {
     return this.subcategoriesService.remove(id);
   }
 }

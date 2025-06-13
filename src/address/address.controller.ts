@@ -8,6 +8,8 @@ import {
   Param,
   Req,
   UseGuards,
+  ParseUUIDPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AddressService } from './address.service';
@@ -36,26 +38,71 @@ export class AddressController {
   }
 
   @Get(':id')
-  async findOne(@Req() req: AuthRequest, @Param('id') id: string) {
+  async findOne(
+    @Req() req: AuthRequest,
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
+  ) {
     return this.addressService.findOne(req.user, id);
   }
 
   @Patch(':id')
   async update(
     @Req() req: AuthRequest,
-    @Param('id') id: string,
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
     @Body() dto: UpdateAddressDto,
   ) {
     return this.addressService.update(req.user, id, dto);
   }
 
   @Delete(':id')
-  async remove(@Req() req: AuthRequest, @Param('id') id: string) {
+  async remove(
+    @Req() req: AuthRequest,
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
+  ) {
     return this.addressService.remove(req.user, id);
   }
 
   @Patch(':id/principal')
-  async setPrincipal(@Req() req: AuthRequest, @Param('id') id: string) {
+  async setPrincipal(
+    @Req() req: AuthRequest,
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException('El id debe tener formato UUID v4 válido.'),
+      }),
+    )
+    id: string,
+  ) {
     return this.addressService.setPrincipal(req.user, id);
   }
 }

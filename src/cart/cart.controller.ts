@@ -9,6 +9,8 @@ import {
   Req,
   Query,
   Patch,
+  ParseUUIDPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CartService } from './cart.service';
@@ -44,7 +46,18 @@ export class CartController {
   @Delete(':productId')
   async removeFromCart(
     @Req() req: AuthRequest,
-    @Param('productId') productId: string,
+    @Param(
+      'productId',
+      new ParseUUIDPipe({
+        version: '4',
+        errorHttpStatusCode: 400,
+        exceptionFactory: () =>
+          new BadRequestException(
+            'El productId debe tener formato UUID v4 válido.',
+          ),
+      }),
+    )
+    productId: string,
   ) {
     return this.cartService.removeFromCart(req.user, productId);
   }
