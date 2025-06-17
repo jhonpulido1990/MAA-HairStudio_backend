@@ -37,8 +37,14 @@ export class Product {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   weight?: number;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  dimension?: string;
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  length?: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  width?: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  height?: number;
 
   @CreateDateColumn({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;

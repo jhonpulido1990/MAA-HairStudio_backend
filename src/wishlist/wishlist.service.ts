@@ -55,21 +55,35 @@ export class WishlistService {
       skip: (page - 1) * limit,
       take: limit,
     });
+    const validItems = items.filter(
+      (item) => !!item.product && item.product.isActive !== false,
+    );
+
+    if (validItems.length < items.length) {
+      // Elimina los wishlist con productos inválidos
+      const invalidIds = items
+        .filter((item) => !item.product || item.product.isActive === false)
+        .map((item) => item.id);
+      if (invalidIds.length) {
+        await this.wishlistRepository.delete(invalidIds);
+      }
+    }
+
     return {
-      data: items
-        .filter((item) => item.product.isActive !== false)
-        .map((item) => ({
-          id: item.product.id,
-          name: item.product.name,
-          image: item.product.image,
-          price: item.product.price,
-          description: item.product.description,
-          brand: item.product.brand,
-          subcategory: item.product.subcategory,
-          dimension: item.product.dimension,
-          weight: item.product.weight,
-          stock: item.product.stock,
-        })),
+      data: validItems.map((item) => ({
+        id: item.product.id,
+        name: item.product.name,
+        image: item.product.image,
+        price: item.product.price,
+        description: item.product.description,
+        brand: item.product.brand,
+        subcategory: item.product.subcategory.name,
+        weight: item.product.weight,
+        length: item.product.length,
+        width: item.product.width,
+        height: item.product.height,
+        stock: item.product.stock,
+      })),
       total,
       page,
       limit,

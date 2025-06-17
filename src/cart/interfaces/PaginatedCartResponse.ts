@@ -9,7 +9,10 @@ export interface PaginatedCartResponse {
       subcategory: string;
       brand: string;
       weight: string;
-      dimension: string;
+      length: string;
+      width: string;
+      height: string;
+      // dimension?: string; // Uncomment if dimension is needed
       isActive?: boolean;
     };
     quantity: number;
@@ -20,4 +23,8 @@ export interface PaginatedCartResponse {
   limit: number;
   totalPages: number;
   totalAmount: number;
+  totalWeight: number;
+  totalLength: number;
+  totalWidth: number;
+  totalHeight: number;
 }

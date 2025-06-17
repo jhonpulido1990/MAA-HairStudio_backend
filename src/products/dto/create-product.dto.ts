@@ -35,9 +35,6 @@ export class CreateProductDto {
 
   @IsString({ message: 'La imagen debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'La imagen es obligatoria.' })
-  @MaxLength(255, {
-    message: 'La URL de la imagen no puede superar los 255 caracteres.',
-  })
   image: string;
 
   @IsOptional()
@@ -54,11 +51,28 @@ export class CreateProductDto {
   weight?: number;
 
   @IsOptional()
-  @IsString({ message: 'La dimensión debe ser una cadena de texto.' })
-  @MaxLength(100, {
-    message: 'La dimensión no puede superar los 100 caracteres.',
-  })
-  dimension?: string;
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'La longitud debe ser un número con hasta 2 decimales.' },
+  )
+  @Min(0, { message: 'La longitud no puede ser negativa.' })
+  length?: number;
+
+  @IsOptional()
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'El ancho debe ser un número con hasta 2 decimales.' },
+  )
+  @Min(0, { message: 'El ancho no puede ser negativo.' })
+  width?: number;
+
+  @IsOptional()
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'La altura debe ser un número con hasta 2 decimales.' },
+  )
+  @Min(0, { message: 'La altura no puede ser negativa.' })
+  height?: number;
 
   @IsOptional()
   @IsBoolean({ message: 'El estado debe ser booleano.' })

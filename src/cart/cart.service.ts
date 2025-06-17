@@ -52,6 +52,8 @@ export class CartService {
       0,
     );
 
+    const totals = getCartTotals(validItems);
+
     return {
       data: paginatedItems.map((item) => ({
         id: item.id,
@@ -63,7 +65,10 @@ export class CartService {
           subcategory: item.product.subcategory?.name || 'N/A',
           brand: item.product.brand?.toString() || 'N/A',
           weight: item.product.weight?.toString() || '0',
-          dimension: item.product.dimension?.toString() || 'N/A',
+          length: item.product.length?.toString() || '0',
+          width: item.product.width?.toString() || '0',
+          height: item.product.height?.toString() || '0',
+          isActive: item.product.isActive,
         },
         quantity: item.quantity,
         subtotal: item.product.price * item.quantity,
@@ -73,6 +78,11 @@ export class CartService {
       limit,
       totalPages,
       totalAmount,
+      // Agrega los totales de peso y dimensiones
+      totalWeight: totals.totalWeight,
+      totalLength: totals.totalLength,
+      totalWidth: totals.totalWidth,
+      totalHeight: totals.totalHeight,
     };
   }
 
@@ -196,4 +206,23 @@ export class CartService {
     }
     return this.getCart(user, page, limit);
   }
+}
+
+function getCartTotals(items: CartItem[]) {
+  return items.reduce(
+    (totals, item) => {
+      const { weight, length, width, height } = item.product;
+      totals.totalWeight += weight ? Number(weight) * item.quantity : 0;
+      totals.totalLength += length ? Number(length) * item.quantity : 0;
+      totals.totalWidth += width ? Number(width) * item.quantity : 0;
+      totals.totalHeight += height ? Number(height) * item.quantity : 0;
+      return totals;
+    },
+    {
+      totalWeight: 0,
+      totalLength: 0,
+      totalWidth: 0,
+      totalHeight: 0,
+    },
+  );
 }
