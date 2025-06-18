@@ -6,6 +6,26 @@ import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { CreateParcelDto } from './dto/create-parcel.dto';
 
 @Controller('shippo')
+/**
+ * Controlador ShippoController
+ *
+ * Expone endpoints para gestionar direcciones, tarifas, envíos, etiquetas, trackings, paquetes y carriers
+ * utilizando los servicios de Shippo.
+ *
+ * Métodos:
+ *
+ * - crearDireccion: Crea una nueva dirección a partir de los datos proporcionados.
+ * - validarDireccion: Valida una dirección antes de utilizarla en un envío.
+ * - obtenerTarifas: Obtiene las tarifas de envío disponibles según los datos proporcionados.
+ * - crearEnvio: Crea un nuevo envío con la información suministrada.
+ * - obtenerEnvio: Obtiene los detalles de un envío específico por su ID.
+ * - comprarEtiqueta: Compra una etiqueta de envío para un shipment y rate específicos.
+ * - obtenerEtiqueta: Obtiene la información de una etiqueta de envío por su ID.
+ * - crearTracking: Crea un tracking para un número de envío y carrier determinados.
+ * - obtenerTracking: Obtiene la información de tracking de un envío por su ID.
+ * - crearPaquete: Crea un nuevo paquete (parcel) con las dimensiones y peso especificados.
+ * - listarCarriers: Lista los carriers disponibles para realizar envíos.
+ */
 export class ShippoController {
   constructor(private readonly shippoService: ShippoService) {}
 

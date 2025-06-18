@@ -25,23 +25,23 @@ export class ShippoService {
   }
 
   async validarDireccion(idOrData: string | CreateAddressDto) {
-    return this.shippoClient.address.validate(idOrData);
+    return await this.shippoClient.address.validate(idOrData);
   }
 
   async obtenerTarifas(data: GetRatesDto) {
-    return this.shippoClient.shipment.getRates(data);
+    return await this.shippoClient.shipment.getRates(data);
   }
 
   async crearEnvio(data: CreateShipmentDto) {
-    return this.shippoClient.shipment.create(data);
+    return await this.shippoClient.shipment.create(data);
   }
 
   async obtenerEnvio(id: string) {
-    return this.shippoClient.shipment.retrieve(id);
+    return await this.shippoClient.shipment.retrieve(id);
   }
 
   async comprarEtiqueta(shipmentId: string, rateId: string) {
-    return this.shippoClient.transaction.create({
+    return await this.shippoClient.transaction.create({
       shipment: shipmentId,
       rate: rateId,
       label_file_type: 'PDF',
@@ -56,21 +56,21 @@ export class ShippoService {
   }
 
   async crearTracking(numero: string, carrier: string) {
-    return this.shippoClient.track.create({
+    return await this.shippoClient.track.create({
       carrier,
       tracking_number: numero,
     });
   }
 
   async obtenerTracking(id: string) {
-    return this.shippoClient.track.get(id);
+    return await this.shippoClient.track.get(id);
   }
 
   async crearPaquete(data: CreateParcelDto) {
-    return this.shippoClient.parcel.create(data);
+    return await this.shippoClient.parcel.create(data);
   }
 
   async listarCarriers() {
-    return this.shippoClient.carrieraccount.list();
+    return await this.shippoClient.carrieraccount.list();
   }
 }
