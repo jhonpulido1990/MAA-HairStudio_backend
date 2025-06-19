@@ -5,15 +5,28 @@ import { Address } from './address.entity';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 import { User } from '../users/user.entity';
+import { ShippoService } from '../shippo/shippo.service'; // Importa ShippoService
+/* import { mapToShippoAddress } from './utils/address-mapper'; */
 
 @Injectable()
 export class AddressService {
   constructor(
     @InjectRepository(Address)
     private readonly addressRepository: Repository<Address>,
+    private readonly shippoService: ShippoService, // Inyecta ShippoService
   ) {}
 
   async create(user: User, dto: CreateAddressDto): Promise<Address> {
+    // 1. Mapea tu DTO al formato Shippo
+    /* const shippoDto = mapToShippoAddress(dto); */
+
+    // 2. Valida la dirección con Shippo
+    /* const validation = await this.shippoService.validarDireccion(shippoDto);
+    if (!validation?.validation_results?.is_valid) {
+      throw new BadRequestException('Dirección inválida según Shippo');
+    }
+ */
+    // 3. Guarda la dirección en tu base de datos
     const address = this.addressRepository.create({ ...dto, user });
     if (dto.esPrincipal) {
       await this.addressRepository.update({ user }, { esPrincipal: false });

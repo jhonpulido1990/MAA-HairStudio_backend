@@ -1,15 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-// Cambia la importación de Shippo a require y tipa la función
-import { Shippo } from 'shippo';
 import { CreateAddressDto } from './dto/create-address.dto';
-import { GetRatesDto } from './dto/get-rates.dto';
-import { CreateShipmentDto } from './dto/create-shipment.dto';
-import { CreateParcelDto } from './dto/create-parcel.dto';
+import { ShipmentCreateRequest, Shippo } from 'shippo';
+import { CreateParcelRequestBody } from 'shippo/models/operations';
 
 @Injectable()
 export class ShippoService {
-  private shippoClient;
+  private shippoClient: Shippo;
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('SHIPPO_API_KEY');
@@ -20,57 +21,146 @@ export class ShippoService {
   }
 
   async crearDireccion(data: CreateAddressDto) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return await this.shippoClient.address.create(data);
+    try {
+      return await this.shippoClient.addresses.create(data);
+    } catch (error) {
+      const status = (error as { status?: number; statusCode?: number })
+        ?.status;
+      const statusCode = (error as { status?: number; statusCode?: number })
+        ?.statusCode;
+      if (status === 404 || statusCode === 404) {
+        throw new NotFoundException(
+          'Dirección no pudo ser creada en Shippo, revisa los datos enviados.',
+        );
+      }
+      throw new InternalServerErrorException(
+        'Error al crear dirección en Shippo',
+      );
+    }
   }
 
-  async validarDireccion(idOrData: string | CreateAddressDto) {
-    return await this.shippoClient.address.validate(idOrData);
+  async validarDireccion(id: string) {
+    try {
+      return await this.shippoClient.addresses.validate(id);
+    } catch (error) {
+      const status = (error as { status?: number; statusCode?: number })
+        ?.status;
+      const statusCode = (error as { status?: number; statusCode?: number })
+        ?.statusCode;
+      if (status === 404 || statusCode === 404) {
+        throw new NotFoundException('Dirección no encontrada en Shippo');
+      }
+      throw new InternalServerErrorException(
+        'Error al validar dirección en Shippo',
+      );
+    }
   }
 
-  async obtenerTarifas(data: GetRatesDto) {
-    return await this.shippoClient.shipment.getRates(data);
+  async obtenerTarifas(shipmentId: string) {
+    try {
+      return await this.shippoClient.shipments.get(shipmentId);
+    } catch (error) {
+      const status = (error as { status?: number; statusCode?: number })
+        ?.status;
+      const statusCode = (error as { status?: number; statusCode?: number })
+        ?.statusCode;
+      if (status === 404 || statusCode === 404) {
+        throw new NotFoundException('Tarifa no encontrada en Shippo');
+      }
+      throw new InternalServerErrorException(
+        'Error al validar la tarifa en Shippo',
+      );
+    }
   }
 
-  async crearEnvio(data: CreateShipmentDto) {
-    return await this.shippoClient.shipment.create(data);
+  async crearEnvio(data: ShipmentCreateRequest) {
+    try {
+      return await this.shippoClient.shipments.create(data);
+    } catch (error) {
+      const status = (error as { status?: number; statusCode?: number })
+        ?.status;
+      const statusCode = (error as { status?: number; statusCode?: number })
+        ?.statusCode;
+
+      if (status === 404 || statusCode === 404) {
+        throw new NotFoundException(
+          'No se encontró alguno de los recursos (dirección o paquete) en Shippo. Verifica que los IDs enviados sean correctos.',
+        );
+      }
+
+      // Puedes agregar más lógica para otros códigos de error si Shippo los provee
+
+      throw new InternalServerErrorException(
+        'No se pudo crear el envío. Verifica que las direcciones y el paquete sean válidos o intenta nuevamente más tarde.',
+      );
+    }
   }
 
   async obtenerEnvio(id: string) {
-    return await this.shippoClient.shipment.retrieve(id);
+    try {
+      return await this.shippoClient.shipments.get(id);
+    } catch (error) {
+      const status = (error as { status?: number; statusCode?: number })
+        ?.status;
+      const statusCode = (error as { status?: number; statusCode?: number })
+        ?.statusCode;
+      if (status === 404 || statusCode === 404) {
+        throw new NotFoundException('Envio no encontrado en Shippo');
+      }
+      throw new InternalServerErrorException(
+        'Error al Buscar el Id del envio en Shippo',
+      );
+    }
   }
 
-  async comprarEtiqueta(shipmentId: string, rateId: string) {
-    return await this.shippoClient.transaction.create({
+  async comprarEtiqueta(shipmentId: ShipmentCreateRequest, rateId: string) {
+    return await this.shippoClient.transactions.create({
       shipment: shipmentId,
       rate: rateId,
-      label_file_type: 'PDF',
+      labelFileType: 'PDF',
       async: false,
     });
   }
 
   async obtenerEtiqueta(transactionId: string) {
-    const transaction =
-      await this.shippoClient.transaction.retrieve(transactionId);
-    return transaction.label_url;
+    const transaction = await this.shippoClient.transactions.get(transactionId);
+    return transaction.labelUrl;
   }
 
   async crearTracking(numero: string, carrier: string) {
-    return await this.shippoClient.track.create({
+    return await this.shippoClient.trackingStatus.create({
       carrier,
-      tracking_number: numero,
+      trackingNumber: numero,
     });
   }
 
-  async obtenerTracking(id: string) {
-    return await this.shippoClient.track.get(id);
+  async obtenerTracking(id: string, carrier: string) {
+    return await this.shippoClient.trackingStatus.get(id, carrier);
   }
 
-  async crearPaquete(data: CreateParcelDto) {
-    return await this.shippoClient.parcel.create(data);
+  async crearPaquete(data: CreateParcelRequestBody) {
+    try {
+      return await this.shippoClient.parcels.create(data);
+    } catch (error) {
+      const status = (error as { status?: number; statusCode?: number })
+        ?.status;
+      const statusCode = (error as { status?: number; statusCode?: number })
+        ?.statusCode;
+      if (status === 404 || statusCode === 404) {
+        throw new NotFoundException(
+          'No se ha podido crear el paquete por falta de datos o datos incorrectos en Shippo',
+        );
+      }
+      throw new InternalServerErrorException(
+        'Error al crear el paquete en Shippo',
+      );
+    }
   }
 
-  async listarCarriers() {
-    return await this.shippoClient.carrieraccount.list();
+  async listarCarriers(page: number = 1, results: number = 10) {
+    return await this.shippoClient.carrierAccounts.list({
+      page: page,
+      results: results,
+    });
   }
 }
