@@ -7,7 +7,7 @@ import {
   Length,
 } from 'class-validator';
 
-export class CreateAddressDto {
+export class CreateAddressDto1 {
   @IsString({
     message:
       'El nombre completo es obligatorio y debe ser una cadena de texto.',

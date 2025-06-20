@@ -60,4 +60,7 @@ export class Address {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Column({ nullable: true })
+  shippoObjectId?: string;
 }

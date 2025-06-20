@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AddressService } from './address.service';
-import { CreateAddressDto } from './dto/create-address.dto';
+import { CreateAddressDto1 } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 import { Request } from 'express';
 import { User } from '../users/user.entity';
@@ -28,7 +28,7 @@ export class AddressController {
   constructor(private readonly addressService: AddressService) {}
 
   @Post()
-  async create(@Req() req: AuthRequest, @Body() dto: CreateAddressDto) {
+  async create(@Req() req: AuthRequest, @Body() dto: CreateAddressDto1) {
     return this.addressService.create(req.user, dto);
   }
 

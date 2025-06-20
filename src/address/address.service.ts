@@ -1,33 +1,51 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Address } from './address.entity';
-import { CreateAddressDto } from './dto/create-address.dto';
+import { CreateAddressDto1 } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 import { User } from '../users/user.entity';
-import { ShippoService } from '../shippo/shippo.service'; // Importa ShippoService
-/* import { mapToShippoAddress } from './utils/address-mapper'; */
+import { ShippoService } from '../shippo/shippo.service';
+import { mapToShippoAddress } from './utils/address-mapper';
 
 @Injectable()
 export class AddressService {
   constructor(
     @InjectRepository(Address)
     private readonly addressRepository: Repository<Address>,
-    private readonly shippoService: ShippoService, // Inyecta ShippoService
+    private readonly shippoService: ShippoService,
   ) {}
 
-  async create(user: User, dto: CreateAddressDto): Promise<Address> {
+  async create(user: User, dto: CreateAddressDto1): Promise<Address> {
     // 1. Mapea tu DTO al formato Shippo
-    /* const shippoDto = mapToShippoAddress(dto); */
+    const shippoDto = mapToShippoAddress(dto);
 
-    // 2. Valida la dirección con Shippo
-    /* const validation = await this.shippoService.validarDireccion(shippoDto);
-    if (!validation?.validation_results?.is_valid) {
-      throw new BadRequestException('Dirección inválida según Shippo');
+    // 2. crear la dirección en Shippo
+    const shippoAddress = await this.shippoService.crearDireccion(shippoDto);
+    console.log('Shippo Address:', shippoAddress);
+    if (!shippoAddress) {
+      throw new BadRequestException('Error al crear la dirección en Shippo.');
     }
- */
-    // 3. Guarda la dirección en tu base de datos
-    const address = this.addressRepository.create({ ...dto, user });
+
+    // 3. Valida la dirección con Shippo
+    const validatedAddress = await this.shippoService.validarDireccion(
+      shippoAddress.objectId || '',
+    );
+    console.log('Validated Address:', validatedAddress);
+    if (!validatedAddress) {
+      throw new BadRequestException('Dirección no válida según Shippo.');
+    }
+
+    // Guarda el objectId de Shippo en tu base de datos
+    const address = this.addressRepository.create({
+      ...dto,
+      user,
+      shippoObjectId: shippoAddress.objectId, // <--- aquí lo guardas
+    });
     if (dto.esPrincipal) {
       await this.addressRepository.update({ user }, { esPrincipal: false });
     }
@@ -52,10 +70,33 @@ export class AddressService {
     dto: UpdateAddressDto,
   ): Promise<Address> {
     const address = await this.findOne(user, id);
+
+    // Si es principal, actualiza las demás
     if (dto.esPrincipal) {
       await this.addressRepository.update({ user }, { esPrincipal: false });
     }
-    Object.assign(address, dto);
+
+    // Combina los datos existentes con los nuevos
+    const fullData = { ...address, ...dto };
+
+    // Mapea y crea la nueva dirección en Shippo con todos los datos completos
+    const shippoDto = mapToShippoAddress(fullData as CreateAddressDto1);
+    console.log('Shippo DTO:', shippoDto);
+
+    const shippoAddress = await this.shippoService.crearDireccion(shippoDto);
+    if (!shippoAddress) {
+      throw new BadRequestException('Error al crear la dirección en Shippo.');
+    }
+
+    const validatedAddress = await this.shippoService.validarDireccion(
+      shippoAddress.objectId || '',
+    );
+    if (!validatedAddress) {
+      throw new BadRequestException('Dirección no válida según Shippo.');
+    }
+
+    Object.assign(address, dto, { shippoObjectId: shippoAddress.objectId });
+
     return this.addressRepository.save(address);
   }
 
