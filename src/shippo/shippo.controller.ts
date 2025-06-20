@@ -3,10 +3,10 @@ import {
   Post,
   Body,
   Get,
-  Param,
   UseGuards,
   UsePipes,
   ValidationPipe,
+  Query,
 } from '@nestjs/common';
 import { ShippoService } from './shippo.service';
 import { CreateAddressDto } from './dto/create-address.dto';
@@ -17,6 +17,9 @@ import { ShipmentCreateRequest } from 'shippo';
 import { IdDto } from './dto/id.dto';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { CreateParcelDto } from './dto/create-parcel.dto';
+import { ComprarEtiquetaDto } from './dto/create-etiqueta.dto';
+import { CreateParcelRequestBody } from 'shippo/models/operations';
+import { CreateTrackingDto } from './dto/create-tracking.dto';
 
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('shippo')
@@ -65,7 +68,7 @@ export class ShippoController {
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   crearEnvio(@Body() dto: CreateShipmentDto) {
     // Aquí puedes mapear dto a ShipmentCreateRequest si necesitas
-    return this.shippoService.crearEnvio(dto as any);
+    return this.shippoService.crearEnvio(dto as ShipmentCreateRequest);
   }
 
   @Post('envio/obtener')
@@ -77,37 +80,47 @@ export class ShippoController {
   // Solo admin puede comprar etiquetas
   @Roles('admin')
   @Post('etiqueta/comprar')
-  comprarEtiqueta(
-    @Body() body: { shipmentId: ShipmentCreateRequest; rateId: string },
-  ) {
-    return this.shippoService.comprarEtiqueta(body.shipmentId, body.rateId);
+  comprarEtiqueta(@Body() body: ComprarEtiquetaDto) {
+    return this.shippoService.comprarEtiqueta(
+      body.shipmentId as ShipmentCreateRequest,
+      body.rateId,
+    );
   }
 
-  @Get('etiqueta/:id')
-  obtenerEtiqueta(@Param('id') id: string) {
-    return this.shippoService.obtenerEtiqueta(id);
+  @Post('etiqueta/obtener')
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  obtenerEtiqueta(@Body() body: IdDto) {
+    return this.shippoService.obtenerEtiqueta(body.id);
   }
 
   @Post('tracking')
-  crearTracking(@Body() body: { trackingNumber: string; carrier: string }) {
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  crearTracking(@Body() body: CreateTrackingDto) {
     return this.shippoService.crearTracking(body.trackingNumber, body.carrier);
   }
 
-  @Get('tracking/:id/:carrier')
-  obtenerTracking(@Param('id') id: string, @Param('carrier') carrier: string) {
-    return this.shippoService.obtenerTracking(id, carrier);
+  @Post('tracking/obtener')
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  obtenerTracking(@Body() body: CreateTrackingDto) {
+    return this.shippoService.obtenerTracking(
+      body.trackingNumber,
+      body.carrier,
+    );
   }
 
   @Post('paquete')
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   crearPaquete(@Body() dto: CreateParcelDto) {
-    return this.shippoService.crearPaquete(dto as any);
+    return this.shippoService.crearPaquete(dto as CreateParcelRequestBody);
   }
 
   // solo admin puede listar carriers
   @Roles('admin')
   @Get('carriers')
-  listarCarriers() {
-    return this.shippoService.listarCarriers();
+  listarCarriers(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    return this.shippoService.listarCarriers(Number(page), Number(limit));
   }
 }

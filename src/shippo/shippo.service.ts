@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   InternalServerErrorException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CreateAddressDto } from './dto/create-address.dto';
@@ -114,28 +115,97 @@ export class ShippoService {
   }
 
   async comprarEtiqueta(shipmentId: ShipmentCreateRequest, rateId: string) {
-    return await this.shippoClient.transactions.create({
-      shipment: shipmentId,
-      rate: rateId,
-      labelFileType: 'PDF',
-      async: false,
-    });
+    try {
+      return await this.shippoClient.transactions.create({
+        shipment: shipmentId,
+        rate: rateId,
+        labelFileType: 'PDF',
+        async: false,
+      });
+    } catch (error) {
+      const status = (error as { status?: number; statusCode?: number })
+        ?.status;
+      const statusCode = (error as { status?: number; statusCode?: number })
+        ?.statusCode;
+
+      if (status === 404 || statusCode === 404) {
+        throw new BadRequestException(
+          'El shipmentId o rateId no existe o es incorrecto en Shippo.',
+        );
+      }
+
+      throw new BadRequestException(
+        'No se pudo comprar la etiqueta. Verifica que los IDs sean correctos y válidos.',
+      );
+    }
   }
 
   async obtenerEtiqueta(transactionId: string) {
-    const transaction = await this.shippoClient.transactions.get(transactionId);
-    return transaction.labelUrl;
+    try {
+      const transaction =
+        await this.shippoClient.transactions.get(transactionId);
+      return transaction;
+    } catch (error) {
+      const status = (error as { status?: number; statusCode?: number })
+        ?.status;
+      const statusCode = (error as { status?: number; statusCode?: number })
+        ?.statusCode;
+
+      if (status === 404 || statusCode === 404) {
+        throw new NotFoundException(
+          'Etiqueta no encontrada en Shippo. Verifica el transactionId.',
+        );
+      }
+
+      throw new InternalServerErrorException(
+        'Error al obtener la etiqueta en Shippo. Intenta nuevamente más tarde.',
+      );
+    }
   }
 
   async crearTracking(numero: string, carrier: string) {
-    return await this.shippoClient.trackingStatus.create({
-      carrier,
-      trackingNumber: numero,
-    });
+    try {
+      return await this.shippoClient.trackingStatus.create({
+        carrier,
+        trackingNumber: numero,
+      });
+    } catch (error) {
+      const status = (error as { status?: number; statusCode?: number })
+        ?.status;
+      const statusCode = (error as { status?: number; statusCode?: number })
+        ?.statusCode;
+
+      if (status === 404 || statusCode === 404) {
+        throw new NotFoundException(
+          'No se encontró el número de tracking o el carrier en Shippo. Verifica los datos enviados.',
+        );
+      }
+
+      throw new InternalServerErrorException(
+        'Error al crear el tracking en Shippo. Intenta nuevamente más tarde.',
+      );
+    }
   }
 
   async obtenerTracking(id: string, carrier: string) {
-    return await this.shippoClient.trackingStatus.get(id, carrier);
+    try {
+      return await this.shippoClient.trackingStatus.get(id, carrier);
+    } catch (error) {
+      const status = (error as { status?: number; statusCode?: number })
+        ?.status;
+      const statusCode = (error as { status?: number; statusCode?: number })
+        ?.statusCode;
+
+      if (status === 404 || statusCode === 404) {
+        throw new NotFoundException(
+          'No se encontró el número de tracking o el carrier en Shippo. Verifica los datos enviados.',
+        );
+      }
+
+      throw new InternalServerErrorException(
+        'Error al crear el tracking en Shippo. Intenta nuevamente más tarde.',
+      );
+    }
   }
 
   async crearPaquete(data: CreateParcelRequestBody) {
