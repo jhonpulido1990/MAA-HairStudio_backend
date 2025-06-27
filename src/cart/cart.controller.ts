@@ -24,6 +24,17 @@ interface AuthRequest extends Request {
   user: User;
 }
 
+/**
+ * Controlador para gestionar las operaciones del carrito de compras.
+ *
+ * - `@Get() getCart`: Obtiene el carrito del usuario autenticado, soportando paginación mediante los parámetros `page` y `limit`.
+ * - `@Post() addToCart`: Agrega un producto al carrito del usuario autenticado, recibiendo los datos del producto a través del cuerpo de la petición.
+ * - `@Delete(':productId') removeFromCart`: Elimina un producto específico del carrito del usuario autenticado, identificando el producto por su UUID v4.
+ * - `@Delete() clearCart`: Elimina todos los productos del carrito del usuario autenticado.
+ * - `@Patch() updateCartItem`: Actualiza la cantidad o información de un producto en el carrito del usuario autenticado, soportando paginación en la respuesta.
+ *
+ * Todas las rutas requieren autenticación JWT.
+ */
 @UseGuards(AuthGuard('jwt'))
 @Controller('cart')
 export class CartController {
