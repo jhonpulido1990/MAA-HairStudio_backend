@@ -11,7 +11,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  app.setGlobalPrefix('api/v1'); // Prefijo global para todas las rutas, ej: /api/v1/auth/login
+  /* app.setGlobalPrefix('api/v1'); // Prefijo global para todas las rutas, ej: /api/v1/auth/login */
 
   app.useGlobalPipes(
     new ValidationPipe({
