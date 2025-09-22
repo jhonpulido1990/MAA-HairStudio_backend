@@ -1,9 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Seguridad
+  app.use(helmet());
 
   // Habilitar CORS
   app.enableCors({
@@ -11,7 +15,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  /* app.setGlobalPrefix('api/v1'); // Prefijo global para todas las rutas, ej: /api/v1/auth/login */
+  app.setGlobalPrefix('api/v1'); // Prefijo global para todas las rutas, ej: /api/v1/auth/login
 
   app.useGlobalPipes(
     new ValidationPipe({
