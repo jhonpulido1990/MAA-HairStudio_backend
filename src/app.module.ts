@@ -11,9 +11,9 @@ import { CategoriesModule } from './categories/categories.module';
 import { SubcategoriesModule } from './subcategories/subcategories.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { CartModule } from './cart/cart.module';
-import { OrdersModule } from './orders/orders.module';
+/* import { OrdersModule } from './orders/orders.module'; */
 import { AddressModule } from './address/address.module';
-import { ShippoModule } from './shippo/shippo.module';
+/* import { ShippoModule } from './shippo/shippo.module'; */
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -58,9 +58,9 @@ import { ShippoModule } from './shippo/shippo.module';
     SubcategoriesModule,
     WishlistModule,
     CartModule,
-    OrdersModule,
+    /* OrdersModule, */
     AddressModule,
-    ShippoModule,
+    /* ShippoModule, */
   ],
   controllers: [AppController],
   providers: [AppService],

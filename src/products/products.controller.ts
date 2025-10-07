@@ -50,6 +50,8 @@ export class ProductsController {
     @Query('minPrice') minPrice?: number,
     @Query('maxPrice') maxPrice?: number,
     @Query('brand') brand?: string,
+    @Query('type_hair') type_hair?: string,
+    @Query('desired_result') desired_result?: string,
     @Query('page') page = 1,
     @Query('limit') limit = 10,
   ) {
@@ -58,6 +60,8 @@ export class ProductsController {
       minPrice ? Number(minPrice) : undefined,
       maxPrice ? Number(maxPrice) : undefined,
       brand,
+      type_hair,
+      desired_result,
       Number(page),
       Number(limit),
     );

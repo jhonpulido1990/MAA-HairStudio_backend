@@ -28,9 +28,9 @@ export class AddressController {
   constructor(private readonly addressService: AddressService) {}
 
   @Post()
-  async create(@Req() req: AuthRequest, @Body() dto: CreateAddressDto1) {
+/*   async create(@Req() req: AuthRequest, @Body() dto: CreateAddressDto1) {
     return this.addressService.create(req.user, dto);
-  }
+  } */
 
   @Get()
   async findAll(@Req() req: AuthRequest) {

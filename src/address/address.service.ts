@@ -9,18 +9,19 @@ import { Address } from './address.entity';
 import { CreateAddressDto1 } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 import { User } from '../users/user.entity';
-import { ShippoService } from '../shippo/shippo.service';
-import { mapToShippoAddress } from './utils/address-mapper';
+/* import { ShippoService } from '../shippo/shippo.service';
+ */
+/* import { mapToShippoAddress } from './utils/address-mapper'; */
 
 @Injectable()
 export class AddressService {
   constructor(
     @InjectRepository(Address)
     private readonly addressRepository: Repository<Address>,
-    private readonly shippoService: ShippoService,
+    /* private readonly shippoService: ShippoService, */
   ) {}
 
-  async create(user: User, dto: CreateAddressDto1): Promise<Address> {
+ /*  async create(user: User, dto: CreateAddressDto1): Promise<Address> {
     // 1. Mapea tu DTO al formato Shippo
     const shippoDto = mapToShippoAddress(dto);
 
@@ -50,7 +51,7 @@ export class AddressService {
       await this.addressRepository.update({ user }, { esPrincipal: false });
     }
     return this.addressRepository.save(address);
-  }
+  } */
 
   async findAll(user: User): Promise<Address[]> {
     return this.addressRepository.find({ where: { user: { id: user.id } } });
@@ -80,22 +81,22 @@ export class AddressService {
     const fullData = { ...address, ...dto };
 
     // Mapea y crea la nueva dirección en Shippo con todos los datos completos
-    const shippoDto = mapToShippoAddress(fullData as CreateAddressDto1);
-    console.log('Shippo DTO:', shippoDto);
+    /* const shippoDto = mapToShippoAddress(fullData as CreateAddressDto1);
+    console.log('Shippo DTO:', shippoDto); */
 
-    const shippoAddress = await this.shippoService.crearDireccion(shippoDto);
+    /* const shippoAddress = await this.shippoService.crearDireccion(shippoDto);
     if (!shippoAddress) {
       throw new BadRequestException('Error al crear la dirección en Shippo.');
     }
 
     const validatedAddress = await this.shippoService.validarDireccion(
       shippoAddress.objectId || '',
-    );
-    if (!validatedAddress) {
+    ); */
+   /*  if (!validatedAddress) {
       throw new BadRequestException('Dirección no válida según Shippo.');
-    }
+    } */
 
-    Object.assign(address, dto, { shippoObjectId: shippoAddress.objectId });
+   /*  Object.assign(address, dto, { shippoObjectId: shippoAddress.objectId }); */
 
     return this.addressRepository.save(address);
   }

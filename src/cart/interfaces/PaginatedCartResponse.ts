@@ -8,10 +8,8 @@ export interface PaginatedCartResponse {
       price: number;
       subcategory: string;
       brand: string;
-      weight: string;
-      length: string;
-      width: string;
-      height: string;
+      size: string;
+      volume: string;
       // dimension?: string; // Uncomment if dimension is needed
       isActive?: boolean;
     };
@@ -23,8 +21,4 @@ export interface PaginatedCartResponse {
   limit: number;
   totalPages: number;
   totalAmount: number;
-  totalWeight: number;
-  totalLength: number;
-  totalWidth: number;
-  totalHeight: number;
 }

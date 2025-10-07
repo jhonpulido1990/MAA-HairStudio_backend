@@ -7,6 +7,7 @@ import {
   MaxLength,
   IsUUID,
   IsBoolean,
+  Matches,
 } from 'class-validator';
 
 export class CreateProductDto {
@@ -18,6 +19,16 @@ export class CreateProductDto {
   @IsString({ message: 'La descripción debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'La descripción es obligatoria.' })
   description: string;
+
+  @IsOptional()
+  @IsString({ message: 'El tipo de cabello debe ser una cadena de texto.' })
+  @MaxLength(255, { message: 'El tipo de cabello no puede superar los 255 caracteres.' })
+  type_hair?: string;
+
+  @IsOptional()
+  @IsString({ message: 'El resultado deseado debe ser una cadena de texto.' })
+  @MaxLength(255, { message: 'El resultado deseado no puede superar los 255 caracteres.' })
+  desired_result?: string;
 
   @IsNumber(
     { maxDecimalPlaces: 2 },
@@ -48,31 +59,14 @@ export class CreateProductDto {
     { message: 'El peso debe ser un número con hasta 2 decimales.' },
   )
   @Min(0, { message: 'El peso no puede ser negativo.' })
-  weight?: number;
+  size?: number;
 
   @IsOptional()
-  @IsNumber(
-    { maxDecimalPlaces: 2 },
-    { message: 'La longitud debe ser un número con hasta 2 decimales.' },
-  )
-  @Min(0, { message: 'La longitud no puede ser negativa.' })
-  length?: number;
-
-  @IsOptional()
-  @IsNumber(
-    { maxDecimalPlaces: 2 },
-    { message: 'El ancho debe ser un número con hasta 2 decimales.' },
-  )
-  @Min(0, { message: 'El ancho no puede ser negativo.' })
-  width?: number;
-
-  @IsOptional()
-  @IsNumber(
-    { maxDecimalPlaces: 2 },
-    { message: 'La altura debe ser un número con hasta 2 decimales.' },
-  )
-  @Min(0, { message: 'La altura no puede ser negativa.' })
-  height?: number;
+  @IsString({ message: 'El volumen debe ser una cadena de texto.' })
+  @Matches(/^\d+(\.\d{1,2})?\s*(ml|l)$/i, { 
+    message: 'El formato del volumen debe ser un número seguido de "ml" o "l" (ej: 500ml, 1.5l).' 
+  })
+  volume?: string;
 
   @IsOptional()
   @IsBoolean({ message: 'El estado debe ser booleano.' })

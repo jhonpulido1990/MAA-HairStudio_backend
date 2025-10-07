@@ -1,11 +1,11 @@
-import { CreateAddressDto1 as InternalAddressDto } from '../dto/create-address.dto';
+/* import { CreateAddressDto1 as InternalAddressDto } from '../dto/create-address.dto';
 import { CreateAddressDto as ShippoAddressDto } from '../../shippo/dto/create-address.dto';
-
+ */
 /**
  * Mapea una dirección interna al formato requerido por Shippo.
  * Asegúrate de que los valores como 'country' estén en formato ISO 3166-1 alpha-2.
  */
-export function mapToShippoAddress(dto: InternalAddressDto): ShippoAddressDto {
+/* export function mapToShippoAddress(dto: InternalAddressDto): ShippoAddressDto {
   return {
     name: dto.nombreCompleto,
     street1: dto.direccionLinea1,
@@ -17,4 +17,4 @@ export function mapToShippoAddress(dto: InternalAddressDto): ShippoAddressDto {
     phone: dto.telefono ?? undefined,
     email: dto.email ?? undefined,
   };
-}
+} */

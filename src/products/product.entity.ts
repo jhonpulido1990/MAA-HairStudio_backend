@@ -19,6 +19,12 @@ export class Product {
   @Column({ type: 'text' })
   description: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  type_hair?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  desired_result?: string;
+
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price: number;
 
@@ -35,16 +41,13 @@ export class Product {
   brand?: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  weight?: number;
+  size?: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  length?: number;
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  volume?: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  width?: number;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  height?: number;
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
 
   @CreateDateColumn({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
@@ -55,7 +58,4 @@ export class Product {
     onUpdate: 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
-
-  @Column({ type: 'boolean', default: true })
-  isActive: boolean;
 }

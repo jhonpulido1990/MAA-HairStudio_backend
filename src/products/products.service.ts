@@ -172,6 +172,8 @@ export class ProductsService {
     minPrice?: number,
     maxPrice?: number,
     brand?: string,
+    type_hair?: string,          // ✅ Nuevo filtro
+    desired_result?: string, 
     page: number = 1,
     limit: number = 10,
   ): Promise<{
@@ -184,8 +186,8 @@ export class ProductsService {
     const query = this.productRepository.createQueryBuilder('product');
 
     if (name) {
-      query.andWhere('LOWER(product.name) LIKE :name', {
-        name: `%${name.toLowerCase()}%`,
+      query.andWhere('LOWER(product.name) LIKE UNACCENT(LOWER(:name))', {
+        name: `%${name}%`,
       });
     }
     if (minPrice !== undefined) {
@@ -195,13 +197,25 @@ export class ProductsService {
       query.andWhere('product.price <= :maxPrice', { maxPrice });
     }
     if (brand) {
-      query.andWhere('LOWER(product.brand) LIKE :brand', {
-        brand: `%${brand.toLowerCase()}%`,
+      query.andWhere('LOWER(product.brand) LIKE UNACCENT(LOWER(:brand))', {
+        brand: `%${brand}%`,
+      });
+    }
+    // ✅ Nuevos filtros específicos de peluquería
+    if (type_hair) {
+      query.andWhere('UNACCENT(LOWER(product.type_hair)) LIKE UNACCENT(LOWER(:type_hair))', {
+        type_hair: `%${type_hair}%`,
+      });
+    }
+
+    if (desired_result) {
+      query.andWhere('UNACCENT(LOWER(product.desired_result)) LIKE UNACCENT(LOWER(:desired_result))', {
+        desired_result: `%${desired_result}%`,
       });
     }
 
     query
-      .where('product.isActive = :isActive', { isActive: true })
+      .andWhere('product.isActive = :isActive', { isActive: true })
       .skip((page - 1) * limit)
       .take(limit)
       .orderBy('product.createdAt', 'DESC');
