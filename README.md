@@ -97,3 +97,32 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+# Crear orden desde carrito
+POST /api/v1/orders/from-cart
+{
+  "shippingAddressId": "uuid-opcional",
+  "notes": "Entrega en horario de mañana"
+}
+
+# Ver mis órdenes
+GET /api/v1/orders/my-orders?page=1&limit=10
+
+# Ver orden específica
+GET /api/v1/orders/:orderId
+
+# Admin: Ver todas las órdenes
+GET /api/v1/orders/all?page=1&limit=20&status=pending
+
+# Admin: Estadísticas
+GET /api/v1/orders/admin/statistics
+
+# Admin: Buscar por número
+GET /api/v1/orders/search/MAA-2410-0001
+
+# Admin: Actualizar estado
+PATCH /api/v1/orders/:orderId/status
+{
+  "status": "shipped",
+  "notes": "Enviado por Servientrega"
+}
