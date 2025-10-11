@@ -156,6 +156,11 @@ export class OrdersService {
         relations: ['items', 'items.product', 'shippingAddress', 'user']
       });
 
+      // Ocultar password del usuario
+      if (completeOrder?.user?.password_hash) {
+        delete (completeOrder.user as any).password_hash;
+      }
+
       return completeOrder;
 
     } catch (error) {
@@ -173,10 +178,17 @@ export class OrdersService {
   ) {
     const [orders, total] = await this.orderRepository.findAndCount({
       where: { user: { id: userId } },
-      relations: ['items', 'items.product', 'shippingAddress'],
+      relations: ['items', 'items.product', 'shippingAddress', 'user'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
+    });
+
+    // Ocultar password del usuario en todas las órdenes
+    orders.forEach(order => {
+      if (order.user?.password_hash) {
+      delete (order.user as any).password_hash;
+      }
     });
 
     const totalPages = Math.ceil(total / limit);
@@ -198,6 +210,8 @@ export class OrdersService {
       throw new ForbiddenException('No tienes acceso a esta orden');
     }
 
+    order.user && delete (order.user as any).password_hash;
+
     return order;
   }
 
@@ -210,6 +224,8 @@ export class OrdersService {
     if (!order) {
       throw new NotFoundException(`Orden con número ${orderNumber} no encontrada`);
     }
+
+    order.user && delete (order.user as any).password_hash;
 
     return order;
   }
@@ -255,7 +271,8 @@ export class OrdersService {
       .leftJoinAndSelect('order.user', 'user')
       .leftJoinAndSelect('order.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('order.shippingAddress', 'shippingAddress');
+      .leftJoinAndSelect('order.shippingAddress', 'shippingAddress')
+      .select(['order', 'user.id', 'user.name', 'user.role','user.email', 'items', 'product', 'shippingAddress']);
 
     // Filtros opcionales
     if (status) {
