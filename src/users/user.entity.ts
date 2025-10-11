@@ -7,11 +7,11 @@ import {
   Index,
   OneToMany,
 } from 'typeorm';
+import { Exclude } from 'class-transformer'; // ✅ AGREGAR
 import { Wishlist } from '../wishlist/wishlist.entity';
 import { Cart } from '../cart/cart.entity';
-/* import { Order } from 'src/orders/order.entity';
- */
 import { Address } from '../address/address.entity';
+import { Order } from 'src/orders/orders.entity';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -19,7 +19,7 @@ export enum UserRole {
   CUSTOM = 'custom',
 }
 
-@Entity('users') // Nombre de la tabla en la base de datos
+@Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -27,17 +27,18 @@ export class User {
   @Column({ nullable: true })
   name?: string;
 
-  @Index({ unique: true }) // Asegura que el email sea único
+  @Index({ unique: true })
   @Column({ type: 'varchar', length: 255, unique: true })
   email: string;
 
   @Column({ type: 'varchar', length: 255 })
-  password_hash: string; // Almacenaremos la contraseña hasheada
+  @Exclude({ toPlainOnly: true }) // ✅ SOLUCIÓN: Ocultar automáticamente
+  password_hash: string;
 
   @Column({
     type: 'enum',
     enum: UserRole,
-    default: UserRole.USER, // <-- Esto es correcto
+    default: UserRole.USER,
   })
   role: UserRole;
 
@@ -52,9 +53,11 @@ export class User {
   updatedAt: Date;
 
   @Column({ nullable: true })
+  @Exclude({ toPlainOnly: true }) // ✅ OCULTAR token de reset
   resetPasswordToken?: string;
 
   @Column({ nullable: true, type: 'timestamptz' })
+  @Exclude({ toPlainOnly: true }) // ✅ OCULTAR fecha de expiración
   resetPasswordExpires?: Date;
 
   @OneToMany(() => Wishlist, (wishlist) => wishlist.user)
@@ -63,9 +66,13 @@ export class User {
   @OneToMany(() => Cart, (cart) => cart.user)
   carts: Cart[];
 
-  /* @OneToMany(() => Order, (order) => order.user)
-  orders: Order[]; */
-
   @OneToMany(() => Address, (address) => address.user)
   addresses: Address[];
+
+  @OneToMany(() => Order, (order) => order.user, {
+    cascade: false, // ✅ No eliminar órdenes al eliminar usuario (datos históricos)
+    lazy: true,     // ✅ Cargar solo cuando se necesite (performance)
+    nullable: true, // ✅ Usuario puede no tener órdenes
+  })
+  orders: Order[];
 }

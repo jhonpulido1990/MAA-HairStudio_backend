@@ -13,8 +13,8 @@ import { UpdateUserDto } from 'src/auth/dto/update_user';
 import * as crypto from 'crypto';
 import { MailerService } from '@nestjs-modules/mailer';
 import * as bcrypt from 'bcrypt';
+// Remove the shippo Order import since we're using our own Order entity
 
-// DTO interno para la creación de usuarios, usado por AuthService
 export interface InternalCreateUserDto {
   email: string;
   password_hash: string;
@@ -26,7 +26,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    private readonly mailerService: MailerService, // Asegúrate de tener configurado el MailerModule
+    private readonly mailerService: MailerService,
   ) {}
 
   async create(userData: InternalCreateUserDto): Promise<User> {
@@ -42,7 +42,6 @@ export class UsersService {
     try {
       return await this.userRepository.save(user);
     } catch (error: unknown) {
-      // Podrías loggear el error `error.code` para depuración
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new InternalServerErrorException(
@@ -55,20 +54,23 @@ export class UsersService {
     return this.userRepository.findOneBy({ email });
   }
 
+  // ✅ SIMPLIFICADO: Ya no necesita exclusión manual
   async findOneById(
     requestingUser: User,
     userId: string,
-  ): Promise<Omit<User, 'password_hash'> | null> {
+  ): Promise<User | null> {
     if (
       requestingUser.id !== userId &&
       requestingUser.role !== UserRole.ADMIN
     ) {
       throw new ForbiddenException('No tienes permisos para ver este usuario.');
     }
+
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'name', 'email', 'createdAt', 'updatedAt', 'role'],
+      // ✅ Ya no necesitamos select específico, @Exclude() maneja la seguridad
     });
+
     if (!user) {
       throw new NotFoundException('Usuario no encontrado.');
     }
@@ -83,18 +85,19 @@ export class UsersService {
     return user;
   }
 
+  // ✅ SIMPLIFICADO: Ya no necesita exclusión manual
   async findAll(
     page: number = 1,
     limit: number = 10,
   ): Promise<{
-    data: Omit<User, 'password_hash'>[];
+    data: User[];
     total: number;
     page: number;
     limit: number;
     totalPages: number;
   }> {
     const [users, total] = await this.userRepository.findAndCount({
-      select: ['id', 'name', 'email', 'createdAt', 'updatedAt', 'role'],
+      // ✅ Eliminar select específico, @Exclude() maneja la seguridad
       skip: (page - 1) * limit,
       take: limit,
       order: { createdAt: 'DESC' },
@@ -111,13 +114,13 @@ export class UsersService {
     };
   }
 
+  // ✅ SIMPLIFICADO: Ya no necesita exclusión manual
   async updateUserRole(
     userId: string,
     newRole: UserRole,
-  ): Promise<Omit<User, 'password_hash'>> {
-    console.log('Nuevo rol recibido:', newRole, typeof newRole); // <-- Agrega esto
+  ): Promise<User> {
+    console.log('Nuevo rol recibido:', newRole, typeof newRole);
 
-    // Validar que el role sea válido
     if (!Object.values(UserRole).includes(newRole)) {
       throw new BadRequestException('Rol no válido.');
     }
@@ -130,18 +133,16 @@ export class UsersService {
     user.role = newRole;
     await this.userRepository.save(user);
 
-    // Retornar el usuario sin el password_hash
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password_hash, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    // ✅ Retornar user completo, @Exclude() oculta datos sensibles automáticamente
+    return user;
   }
 
+  // ✅ SIMPLIFICADO: Ya no necesita exclusión manual
   async updateUser(
     requestingUser: User,
     userId: string,
     updateUserDto: UpdateUserDto,
-  ): Promise<Omit<User, 'password_hash'>> {
-    // Solo el dueño o un admin puede actualizar
+  ): Promise<User> {
     if (
       requestingUser.id !== userId &&
       requestingUser.role !== UserRole.ADMIN
@@ -158,10 +159,9 @@ export class UsersService {
     if (updateUserDto.email) user.email = updateUserDto.email;
 
     await this.userRepository.save(user);
-    // Retornar el usuario sin el password_hash
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password_hash, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+
+    // ✅ Retornar user completo, @Exclude() oculta datos sensibles automáticamente
+    return user;
   }
 
   async deleteUser(
@@ -196,7 +196,6 @@ export class UsersService {
     const user = await this.userRepository.findOneBy({ email });
     if (!user) throw new NotFoundException('Usuario no encontrado.');
 
-    // Genera un token seguro
     const token = crypto.randomBytes(32).toString('hex');
     user.resetPasswordToken = token;
     user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
@@ -233,9 +232,249 @@ export class UsersService {
     user.password_hash = await bcrypt.hash(newPassword, 10);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
-    user.resetPasswordExpires = undefined;
 
     await this.userRepository.save(user);
     return { message: 'Contraseña actualizada correctamente.' };
+  }
+
+  // Nuevos métodos sugeridos
+  async getUserWithOrders(
+    requestingUser: User,
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{
+    user: User;
+    orders: {
+      data: any[];
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }> {
+    // Verificar permisos
+    if (requestingUser.id !== userId && requestingUser.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('No tienes permisos para ver este usuario.');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
+
+    // Obtener órdenes paginadas
+    const orderRepository = this.userRepository.manager.getRepository('Order');
+    const [orders, total] = await orderRepository.findAndCount({
+      where: { user: { id: userId } },
+      relations: ['items', 'items.product'],
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      user,
+      orders: {
+        data: orders,
+        total,
+        page,
+        limit,
+        totalPages,
+      }
+    };
+  }
+
+  // Estadísticas de usuario
+  async getUserStats(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['orders'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    return {
+      totalOrders: user.orders.length,
+      totalSpent: user.orders.reduce((sum, order) => sum + order.total, 0),
+      lastOrderDate: user.orders[0]?.createdAt || null,
+    };
+  }
+
+  // ✅ NUEVO: Estadísticas detalladas del usuario
+  async getUserStatistics(
+    requestingUser: User,
+    userId: string
+  ): Promise<{
+    user: Partial<User>;
+    statistics: {
+      totalOrders: number;
+      totalSpent: number;
+      averageOrderValue: number;
+      lastOrderDate: Date | null;
+      ordersByStatus: Record<string, number>;
+      monthlyOrdersCount: Array<{ month: string; count: number; total: number }>;
+      favoriteProducts: Array<{ productName: string; quantity: number; times: number }>;
+    };
+  }> {
+    // Verificar permisos
+    if (requestingUser.id !== userId && requestingUser.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('No tienes permisos para ver estas estadísticas.');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'name', 'email', 'role', 'createdAt'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
+
+    // Consultas de estadísticas
+    const orderRepository = this.userRepository.manager.getRepository('Order');
+
+    // Total de órdenes y gasto
+    const orderStats = await orderRepository
+      .createQueryBuilder('order')
+      .select([
+        'COUNT(order.id) as totalOrders',
+        'COALESCE(SUM(order.total), 0) as totalSpent',
+        'COALESCE(AVG(order.total), 0) as averageOrderValue',
+      ])
+      .where('order.userId = :userId', { userId })
+      .andWhere('order.paymentStatus = :status', { status: 'approved' })
+      .getRawOne();
+
+    // Última orden
+    const lastOrder = await orderRepository.findOne({
+      where: { user: { id: userId } },
+      order: { createdAt: 'DESC' },
+      select: ['createdAt'],
+    });
+
+    // Órdenes por estado
+    const ordersByStatusQuery = await orderRepository
+      .createQueryBuilder('order')
+      .select(['order.status as status', 'COUNT(order.id) as count'])
+      .where('order.userId = :userId', { userId })
+      .groupBy('order.status')
+      .getRawMany();
+
+    const ordersByStatus: Record<string, number> = {};
+    ordersByStatusQuery.forEach(item => {
+      ordersByStatus[item.status] = parseInt(item.count);
+    });
+
+    // Órdenes por mes (últimos 6 meses)
+    const monthlyOrders = await orderRepository
+      .createQueryBuilder('order')
+      .select([
+        "TO_CHAR(DATE_TRUNC('month', order.createdAt), 'YYYY-MM') as month",
+        'COUNT(order.id) as count',
+        'SUM(order.total) as total'
+      ])
+      .where('order.userId = :userId', { userId })
+      .andWhere('order.createdAt >= :date', { 
+        date: new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000) 
+      })
+      .groupBy("DATE_TRUNC('month', order.createdAt)")
+      .orderBy('month', 'DESC')
+      .getRawMany();
+
+    // Productos favoritos
+    const favoriteProducts = await orderRepository
+      .createQueryBuilder('order')
+      .innerJoin('order.items', 'item')
+      .select([
+        'item.productName as productName',
+        'SUM(item.quantity) as quantity',
+        'COUNT(DISTINCT order.id) as times'
+      ])
+      .where('order.userId = :userId', { userId })
+      .andWhere('order.paymentStatus = :status', { status: 'approved' })
+      .groupBy('item.productName')
+      .orderBy('SUM(item.quantity)', 'DESC')
+      .limit(5)
+      .getRawMany();
+
+    return {
+      user,
+      statistics: {
+        totalOrders: parseInt(orderStats.totalOrders || '0'),
+        totalSpent: parseFloat(orderStats.totalSpent || '0'),
+        averageOrderValue: parseFloat(orderStats.averageOrderValue || '0'),
+        lastOrderDate: lastOrder?.createdAt || null,
+        ordersByStatus,
+        monthlyOrdersCount: monthlyOrders.map(item => ({
+          month: item.month,
+          count: parseInt(item.count),
+          total: parseFloat(item.total || '0')
+        })),
+        favoriteProducts: favoriteProducts.map(item => ({
+          productName: item.productName,
+          quantity: parseInt(item.quantity),
+          times: parseInt(item.times)
+        }))
+      }
+    };
+  }
+
+  // ✅ NUEVO: Resumen rápido del usuario
+  async getUserSummary(userId: string): Promise<{
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    totalOrders: number;
+    totalSpent: number;
+    lastOrderDate: Date | null;
+    memberSince: Date;
+  }> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'name', 'email', 'role', 'createdAt'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
+
+    // Estadísticas básicas
+    const orderRepository = this.userRepository.manager.getRepository('Order');
+    
+    const stats = await orderRepository
+      .createQueryBuilder('order')
+      .select([
+        'COUNT(order.id) as totalOrders',
+        'COALESCE(SUM(order.total), 0) as totalSpent',
+      ])
+      .where('order.userId = :userId', { userId })
+      .andWhere('order.paymentStatus = :status', { status: 'approved' })
+      .getRawOne();
+
+    const lastOrder = await orderRepository.findOne({
+      where: { user: { id: userId } },
+      order: { createdAt: 'DESC' },
+      select: ['createdAt'],
+    });
+
+    return {
+      id: user.id,
+      name: user.name || '',
+      email: user.email,
+      role: user.role,
+      totalOrders: parseInt(stats.totalOrders || '0'),
+      totalSpent: parseFloat(stats.totalSpent || '0'),
+      lastOrderDate: lastOrder?.createdAt || null,
+      memberSince: user.createdAt,
+    };
   }
 }
