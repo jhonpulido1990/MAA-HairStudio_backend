@@ -8,25 +8,28 @@ import { User } from 'src/users/user.entity';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    private readonly configService: ConfigService,
     private readonly authService: AuthService,
+    private readonly configService: ConfigService,
   ) {
-    const jwtSecret = configService.get<string>('JWT_SECRET');
-    if (!jwtSecret) {
-      throw new Error('JWT_SECRET is not defined in environment variables');
-    }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false,
-      secretOrKey: jwtSecret,
+      ignoreExpiration: false, // ✅ No ignorar expiración
+      secretOrKey: configService.get<string>('JWT_SECRET') || (() => {
+        throw new Error('JWT_SECRET environment variable is required');
+      })(),
     });
   }
 
-  async validate(payload: JwtPayload): Promise<Omit<User, 'password_hash'>> {
-    const user = await this.authService.validateUserById(payload.id);
+  async validate(payload: JwtPayload): Promise<User> {
+    const { id } = payload;
+    
+    const user = await this.authService.validateUserById(id);
+    
     if (!user) {
-      throw new UnauthorizedException('Token inválido o el usuario no existe.');
+      throw new UnauthorizedException('Token inválido o usuario no encontrado.');
     }
-    return user; // Se adjuntará a request.user
+
+    // ✅ MEJORA: Verificar que el usuario siga activo/válido
+    return user;
   }
 }

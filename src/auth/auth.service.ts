@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { User } from 'src/users/user.entity';
@@ -14,11 +15,13 @@ import { LoginUserDto } from './dto/login-user.dto';
 export interface JwtPayload {
   id: string;
   email: string;
+  role: string; // ✅ AGREGAR rol al payload
 }
 
 export interface LoginResponse {
-  accessToken: string;
-  user: Omit<User, 'password_hash'>;
+  access_token: string; // ✅ CAMBIAR nombre para consistencia
+  user: User; // ✅ SIMPLIFICAR tipo, @Exclude() maneja la seguridad
+  expiresIn: string; // ✅ AGREGAR información de expiración
 }
 
 @Injectable()
@@ -28,24 +31,28 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async register(
-    registerUserDto: RegisterUserDto,
-  ): Promise<Omit<User, 'password_hash'>> {
+  async register(registerUserDto: RegisterUserDto): Promise<User> {
     const { email, password, name } = registerUserDto;
 
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    // ✅ MEJORA: Validar fortaleza de contraseña
+    this.validatePasswordStrength(password);
+
+    const saltRounds = 12; // ✅ AUMENTAR rounds para mejor seguridad
 
     try {
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      
       const userToCreate: InternalCreateUserDto = {
         email,
         password_hash: hashedPassword,
         name,
       };
+      
       const createdUser = await this.usersService.create(userToCreate);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { password_hash, ...result } = createdUser;
-      return result;
+      
+      // ✅ SIMPLIFICADO: @Exclude() maneja la exclusión automáticamente
+      return createdUser;
+      
     } catch (error) {
       if (error instanceof ConflictException) {
         throw error;
@@ -59,28 +66,111 @@ export class AuthService {
 
   async login(loginUserDto: LoginUserDto): Promise<LoginResponse> {
     const { email, password } = loginUserDto;
-    const user = await this.usersService.findOneByEmail(email);
+    
+    // ✅ MEJORA: Validar entrada
+    if (!email || !password) {
+      throw new BadRequestException('Email y contraseña son requeridos.');
+    }
+
+    const user = await this.usersService.findOneByEmail(email.toLowerCase().trim());
 
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
-    const payload: JwtPayload = { id: user.id, email: user.email };
-    const accessToken = this.jwtService.sign(payload);
+    // ✅ MEJORA: Incluir rol en el payload JWT
+    const payload: JwtPayload = { 
+      id: user.id, 
+      email: user.email,
+      role: user.role 
+    };
+    
+    const access_token = this.jwtService.sign(payload);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password_hash, ...userDetails } = user;
-
-    return { accessToken, user: userDetails };
+    return { 
+      access_token, 
+      user, // ✅ SIMPLIFICADO: @Exclude() oculta password automáticamente
+      expiresIn: '3600s' // ✅ AGREGAR información de expiración
+    };
   }
 
-  async validateUserById(
-    id: string,
-  ): Promise<Omit<User, 'password_hash'> | null> {
+  async validateUserById(id: string): Promise<User | null> {
     const user = await this.usersService.findUserById(id);
     if (!user) return null;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password_hash, ...result } = user;
-    return result;
+    
+    // ✅ SIMPLIFICADO: @Exclude() maneja la exclusión automáticamente
+    return user;
+  }
+
+  // ✅ NUEVO: Validar fortaleza de contraseña
+  private validatePasswordStrength(password: string): void {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    if (password.length < minLength) {
+      throw new BadRequestException('La contraseña debe tener al menos 8 caracteres.');
+    }
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
+      throw new BadRequestException(
+        'La contraseña debe contener al menos una mayúscula, una minúscula, un número y un carácter especial.'
+      );
+    }
+  }
+
+  // ✅ NUEVO: Cambiar contraseña
+  async changePassword(
+    userId: string, 
+    currentPassword: string, 
+    newPassword: string
+  ): Promise<{ message: string }> {
+    const user = await this.usersService.findUserById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado.');
+    }
+
+    // Verificar contraseña actual
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException('La contraseña actual es incorrecta.');
+    }
+
+    // Validar nueva contraseña
+    this.validatePasswordStrength(newPassword);
+
+    // Verificar que la nueva contraseña sea diferente
+    const isSamePassword = await bcrypt.compare(newPassword, user.password_hash);
+    if (isSamePassword) {
+      throw new BadRequestException('La nueva contraseña debe ser diferente a la actual.');
+    }
+
+    // Actualizar contraseña
+    const saltRounds = 12;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+    
+    await this.usersService.updatePassword(userId, hashedNewPassword);
+
+    return { message: 'Contraseña actualizada correctamente.' };
+  }
+
+  // ✅ NUEVO: Refresh token (para implementación futura)
+  async refreshToken(userId: string): Promise<{ access_token: string }> {
+    const user = await this.usersService.findUserById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado.');
+    }
+
+    const payload: JwtPayload = { 
+      id: user.id, 
+      email: user.email,
+      role: user.role 
+    };
+    
+    const access_token = this.jwtService.sign(payload);
+
+    return { access_token };
   }
 }

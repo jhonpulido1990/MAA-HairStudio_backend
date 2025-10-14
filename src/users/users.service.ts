@@ -477,4 +477,15 @@ export class UsersService {
       memberSince: user.createdAt,
     };
   }
+
+  // En users.service.ts, agregar este método:
+  async updatePassword(userId: string, hashedPassword: string): Promise<void> {
+    const user = await this.userRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
+
+    user.password_hash = hashedPassword;
+    await this.userRepository.save(user);
+  }
 }
