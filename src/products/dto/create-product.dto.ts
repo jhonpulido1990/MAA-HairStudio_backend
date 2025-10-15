@@ -1,74 +1,184 @@
 import {
   IsString,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
-  Min,
-  MaxLength,
-  IsUUID,
+  IsNumber,
   IsBoolean,
+  IsArray,
+  IsUrl,
+  IsEnum,
+  Min,
+  Max,
+  Length,
   Matches,
+  IsUUID,
+  ArrayMaxSize,
 } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { HairType, DesiredResult } from '../product.entity';
 
 export class CreateProductDto {
   @IsString({ message: 'El nombre debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'El nombre es obligatorio.' })
-  @MaxLength(255, { message: 'El nombre no puede superar los 255 caracteres.' })
+  @Length(1, 255, { message: 'El nombre debe tener entre 1 y 255 caracteres.' })
+  @Transform(({ value }) => value?.trim())
   name: string;
+
+  @IsOptional()
+  @IsString({ message: 'El slug debe ser una cadena de texto.' })
+  @Length(1, 255, { message: 'El slug debe tener entre 1 y 255 caracteres.' })
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+    message: 'El slug debe contener solo letras minúsculas, números y guiones.',
+  })
+  @Transform(({ value }) => value?.trim().toLowerCase())
+  slug?: string;
 
   @IsString({ message: 'La descripción debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'La descripción es obligatoria.' })
+  @Length(10, 2000, { message: 'La descripción debe tener entre 10 y 2000 caracteres.' })
+  @Transform(({ value }) => value?.trim())
   description: string;
 
   @IsOptional()
-  @IsString({ message: 'El tipo de cabello debe ser una cadena de texto.' })
-  @MaxLength(255, { message: 'El tipo de cabello no puede superar los 255 caracteres.' })
-  type_hair?: string;
+  @IsString({ message: 'La descripción corta debe ser una cadena de texto.' })
+  @Length(10, 500, { message: 'La descripción corta debe tener entre 10 y 500 caracteres.' })
+  @Transform(({ value }) => value?.trim())
+  shortDescription?: string;
+
+  // ✅ CAMPOS ESPECÍFICOS DE PELUQUERÍA con Enums
+  @IsOptional()
+  @IsEnum(HairType, {
+    message: `El tipo de cabello debe ser uno de: ${Object.values(HairType).join(', ')}`,
+  })
+  type_hair?: HairType;
 
   @IsOptional()
-  @IsString({ message: 'El resultado deseado debe ser una cadena de texto.' })
-  @MaxLength(255, { message: 'El resultado deseado no puede superar los 255 caracteres.' })
-  desired_result?: string;
+  @IsEnum(DesiredResult, {
+    message: `El resultado deseado debe ser uno de: ${Object.values(DesiredResult).join(', ')}`,
+  })
+  desired_result?: DesiredResult;
 
-  @IsNumber(
-    { maxDecimalPlaces: 2 },
-    { message: 'El precio debe ser un número con hasta 2 decimales.' },
-  )
-  @Min(0, { message: 'El precio no puede ser negativo.' })
+  // ✅ PRICING con validaciones robustas
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El precio debe ser un número con máximo 2 decimales.' })
+  @Min(0.01, { message: 'El precio debe ser mayor a 0.' })
+  @Max(999999.99, { message: 'El precio no puede exceder 999,999.99.' })
+  @Type(() => Number)
   price: number;
 
-  @IsUUID('4', { message: 'El subcategoryId debe ser un UUID válido.' })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El precio original debe ser un número con máximo 2 decimales.' })
+  @Min(0.01, { message: 'El precio original debe ser mayor a 0.' })
+  @Max(999999.99, { message: 'El precio original no puede exceder 999,999.99.' })
+  @Type(() => Number)
+  originalPrice?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El porcentaje de descuento debe ser un número.' })
+  @Min(0, { message: 'El descuento no puede ser negativo.' })
+  @Max(100, { message: 'El descuento no puede exceder 100%.' })
+  @Type(() => Number)
+  discountPercentage?: number = 0;
+
+  // ✅ INVENTARIO
+  @IsOptional()
+  @IsNumber({}, { message: 'El stock debe ser un número entero.' })
+  @Min(0, { message: 'El stock no puede ser negativo.' })
+  @Type(() => Number)
+  stock?: number = 0;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'El stock mínimo debe ser un número entero.' })
+  @Min(0, { message: 'El stock mínimo no puede ser negativo.' })
+  @Type(() => Number)
+  minStock?: number = 5;
+
+  @IsOptional()
+  @IsBoolean({ message: 'trackInventory debe ser un valor booleano.' })
+  @Transform(({ value }) => value === 'true' || value === true)
+  trackInventory?: boolean = true;
+
+  // ✅ RELACIÓN
+  @IsUUID('4', { message: 'El ID de subcategoría debe ser un UUID v4 válido.' })
   subcategoryId: string;
 
-  @IsNumber({}, { message: 'El stock debe ser un número.' })
-  @Min(0, { message: 'El stock no puede ser negativo.' })
-  stock: number;
-
-  @IsString({ message: 'La imagen debe ser una cadena de texto.' })
+  // ✅ MULTIMEDIA
+  @IsUrl({}, { message: 'La imagen debe ser una URL válida.' })
   @IsNotEmpty({ message: 'La imagen es obligatoria.' })
   image: string;
 
   @IsOptional()
+  @IsArray({ message: 'Las imágenes deben ser un arreglo.' })
+  @ArrayMaxSize(10, { message: 'No se pueden agregar más de 10 imágenes.' })
+  @IsUrl({}, { each: true, message: 'Cada imagen debe ser una URL válida.' })
+  images?: string[];
+
+  @IsOptional()
+  @IsUrl({}, { message: 'El video debe ser una URL válida.' })
+  @Length(1, 500, { message: 'La URL del video debe tener máximo 500 caracteres.' })
+  videoUrl?: string;
+
+  // ✅ DETALLES DEL PRODUCTO
+  @IsOptional()
   @IsString({ message: 'La marca debe ser una cadena de texto.' })
-  @MaxLength(100, { message: 'La marca no puede superar los 100 caracteres.' })
+  @Length(1, 100, { message: 'La marca debe tener entre 1 y 100 caracteres.' })
+  @Transform(({ value }) => value?.trim())
   brand?: string;
 
   @IsOptional()
-  @IsNumber(
-    { maxDecimalPlaces: 2 },
-    { message: 'El peso debe ser un número con hasta 2 decimales.' },
-  )
-  @Min(0, { message: 'El peso no puede ser negativo.' })
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El tamaño debe ser un número.' })
+  @Min(0.01, { message: 'El tamaño debe ser mayor a 0.' })
+  @Type(() => Number)
   size?: number;
 
   @IsOptional()
   @IsString({ message: 'El volumen debe ser una cadena de texto.' })
-  @Matches(/^\d+(\.\d{1,2})?\s*(ml|l)$/i, { 
-    message: 'El formato del volumen debe ser un número seguido de "ml" o "l" (ej: 500ml, 1.5l).' 
+  @Length(1, 50, { message: 'El volumen debe tener máximo 50 caracteres.' })
+  @Matches(/^\d+(\.\d{1,2})?(ml|l|kg|g|oz|fl oz)$/i, {
+    message: 'El volumen debe tener el formato: número + unidad (ej: 500ml, 1.5l)',
   })
+  @Transform(({ value }) => value?.trim().toLowerCase())
   volume?: string;
 
   @IsOptional()
-  @IsBoolean({ message: 'El estado debe ser booleano.' })
-  isActive?: boolean;
+  @IsString({ message: 'El SKU debe ser una cadena de texto.' })
+  @Length(1, 100, { message: 'El SKU debe tener máximo 100 caracteres.' })
+  @Transform(({ value }) => value?.trim().toUpperCase())
+  sku?: string;
+
+  @IsOptional()
+  @IsString({ message: 'El código de barras debe ser una cadena de texto.' })
+  @Length(1, 50, { message: 'El código de barras debe tener máximo 50 caracteres.' })
+  barcode?: string;
+
+  // ✅ ESTADOS
+  @IsOptional()
+  @IsBoolean({ message: 'isActive debe ser un valor booleano.' })
+  @Transform(({ value }) => value === 'true' || value === true)
+  isActive?: boolean = true;
+
+  @IsOptional()
+  @IsBoolean({ message: 'isFeatured debe ser un valor booleano.' })
+  @Transform(({ value }) => value === 'true' || value === true)
+  isFeatured?: boolean = false;
+
+  // ✅ SEO
+  @IsOptional()
+  @IsString({ message: 'La meta descripción debe ser una cadena de texto.' })
+  @Length(1, 160, { message: 'La meta descripción debe tener máximo 160 caracteres.' })
+  @Transform(({ value }) => value?.trim())
+  metaDescription?: string;
+
+  @IsOptional()
+  @IsArray({ message: 'Las etiquetas deben ser un arreglo.' })
+  @ArrayMaxSize(20, { message: 'No se pueden agregar más de 20 etiquetas.' })
+  @IsString({ each: true, message: 'Cada etiqueta debe ser una cadena de texto.' })
+  @Transform(({ value }) =>
+    Array.isArray(value)
+      ? value.map((tag) => tag?.toString().trim().toLowerCase()).filter(Boolean)
+      : [],
+  )
+  tags?: string[];
 }
+
+// ✅ Exportar enums para reutilización
+export { HairType, DesiredResult };

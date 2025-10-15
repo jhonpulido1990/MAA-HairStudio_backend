@@ -4,10 +4,10 @@ import {
   Column,
   ManyToOne,
   OneToMany,
+  JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
   Index,
-  JoinColumn,
 } from 'typeorm';
 import { Category } from '../categories/category.entity';
 import { Product } from '../products/product.entity';
@@ -18,57 +18,61 @@ export class Subcategory {
   id: string;
 
   @Column({ length: 100 })
-  @Index() // ✅ AGREGAR índice para búsquedas
+  @Index('idx_subcategories_name')
   name: string;
 
-  // ✅ NUEVO: Descripción opcional
+  @Column({ length: 120, nullable: true })
+  @Index('idx_subcategories_slug')
+  slug?: string;
+
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  // ✅ NUEVO: Orden de visualización dentro de la categoría
+  // ✅ CAMPOS QUE FALTABAN - Agregados para el service
   @Column({ type: 'int', default: 0 })
+  @Index('idx_subcategories_display_order')
   displayOrder: number;
 
-  // ✅ NUEVO: Imagen opcional
-  @Column({ nullable: true })
-  image?: string;
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  color?: string; // ✅ Para colores hex como #FF5733
 
-  // ✅ NUEVO: Icono opcional
-  @Column({ nullable: true })
-  icon?: string;
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  icon?: string; // ✅ Para nombres de iconos o clases CSS
 
-  // ✅ NUEVO: Color para UI (opcional)
-  @Column({ length: 7, nullable: true })
-  color?: string;
-
-  // ✅ MEJORAR: Agregar JoinColumn para mejor control
+  // ✅ RELACIÓN CON CATEGORY
   @ManyToOne(() => Category, (category) => category.subcategories, {
     onDelete: 'CASCADE',
-    nullable: false, // ✅ Asegurar que siempre tenga categoría
-    eager: false,    // ✅ Lazy loading por defecto
+    onUpdate: 'CASCADE',
   })
-  @JoinColumn({ name: 'categoryId' }) // ✅ Nombre explícito de columna FK
-  @Index() // ✅ Índice en FK para performance
+  @JoinColumn({
+    name: 'categoryId',
+    foreignKeyConstraintName: 'fk_subcategories_category',
+  })
   category: Category;
 
-  // ✅ AGREGAR: ID de categoría para consultas más eficientes
   @Column({ type: 'uuid' })
-  @Index() // ✅ Índice para filtros por categoría
+  @Index('idx_subcategories_category_id')
   categoryId: string;
 
-  @OneToMany(() => Product, (product) => product.subcategory, {
-    cascade: false, // ✅ No eliminar productos automáticamente
-    lazy: true,     // ✅ Cargar solo cuando sea necesario
-  })
+  // ✅ RELACIÓN CON PRODUCTS
+  @OneToMany(() => Product, (product) => product.subcategory)
   products: Product[];
 
+  // ✅ ESTADOS
+  @Column({ type: 'boolean', default: true })
+  @Index('idx_subcategories_is_active')
+  isActive: boolean;
+
+  // ✅ TIMESTAMPS
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
 
-  // ✅ NUEVO: Índice compuesto para unicidad por categoría
-  @Index(['name', 'categoryId'], { unique: true })
-  static uniqueNamePerCategory: any;
+  // ✅ COMPUTED PROPERTIES
+  get productCount(): number {
+    return this.products?.length || 0;
+  }
+
 }

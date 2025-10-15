@@ -78,7 +78,7 @@ export class WishlistService {
         description: item.product.description,
         brand: item.product.brand,
         subcategory: item.product.subcategory.name,
-        size: item.product.size,
+        /* size: item.product.size, */
         volume: item.product.volume,
         stock: item.product.stock,
       })),

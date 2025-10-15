@@ -8,7 +8,7 @@ export interface PaginatedCartResponse {
       price: number;
       subcategory: string;
       brand: string;
-      size: string;
+     /*  size: string; */
       volume: string;
       // dimension?: string; // Uncomment if dimension is needed
       isActive?: boolean;

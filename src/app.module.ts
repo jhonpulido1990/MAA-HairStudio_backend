@@ -30,9 +30,12 @@ import { OrdersModule } from './orders/orders.module';
         username: configService.get<string>('PGUSER'),
         password: configService.get<string>('PGPASSWORD'),
         database: configService.get<string>('PGDATABASE'),
-        entities: [__dirname + '/**/*.entity.{js,ts}'], // Puedes usar [__dirname + '/../**/*.entity{.ts,.js}'] para auto-detectar
-        synchronize: true, // true para desarrollo (crea tablas automáticamente), false para producción (usa migraciones)
-        ssl: true, // Cambia a true si usas SSL
+        entities: [__dirname + '/**/*.entity.{js,ts}'],
+        synchronize: true,
+        ssl: true,
+        dropSchema: false, // ✅ No eliminar esquema automáticamente
+        migrationsRun: false, // ✅ No ejecutar migraciones automáticamente
+        logging: ['error', 'warn'], // ✅ Solo logs de errores y advertencias
       }),
       inject: [ConfigService],
     }),

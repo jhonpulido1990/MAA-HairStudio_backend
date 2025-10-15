@@ -62,7 +62,7 @@ export class CartService {
           price: item.product.price,
           subcategory: item.product.subcategory?.name || 'N/A',
           brand: item.product.brand?.toString() || 'N/A',
-          size: item.product.size?.toString() || '0',
+         /*  size: item.product.size?.toString() || '0', */
           volume: item.product.volume?.toString() || '0',
           isActive: item.product.isActive,
         },
