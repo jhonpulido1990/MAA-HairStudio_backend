@@ -1,66 +1,113 @@
 import {
   IsString,
   IsOptional,
-  IsBoolean,
   IsEmail,
-  IsPhoneNumber,
+  IsBoolean,
+  IsIn,
   Length,
+  Matches,
+  IsEnum,
 } from 'class-validator';
+import {
+  ARGENTINA_PROVINCES,
+  ArgentinaProvince,
+} from '../constants/argentina-locations';
 
-export class CreateAddressDto1 {
-  @IsString({
-    message:
-      'El nombre completo es obligatorio y debe ser una cadena de texto.',
+export class CreateAddressDto {
+  @IsString({ message: 'El nombre del destinatario debe ser texto' })
+  @Length(2, 100, {
+    message: 'El nombre debe tener entre 2 y 100 caracteres',
   })
-  nombreCompleto: string;
+  recipientName: string;
 
-  @IsPhoneNumber(undefined, { message: 'Teléfono no válido' })
-  telefono: string;
+  @IsString({ message: 'El teléfono debe ser texto' })
+  @Matches(
+    /^(\+54|54)?[0-9]{8,12}$/,
+    {
+      message: 'El teléfono debe tener formato argentino válido (+541123456789)',
+    },
+  )
+  phone: string;
 
   @IsOptional()
-  @IsPhoneNumber(undefined, { message: 'Teléfono alternativo no válido' })
-  telefonoAlternativo?: string;
+  @IsString({ message: 'El teléfono alternativo debe ser texto' })
+  @Matches(
+    /^(\+54|54)?[0-9]{8,12}$/,
+    {
+      message: 'El teléfono alternativo debe tener formato argentino válido',
+    },
+  )
+  alternativePhone?: string;
 
   @IsOptional()
-  @IsEmail()
+  @IsEmail({}, { message: 'Debe ser un email válido' })
   email?: string;
 
-  @IsString({
-    message: 'El país es obligatorio y debe ser una cadena de texto.',
+  @IsString({ message: 'La provincia debe ser texto' })
+  @IsIn(ARGENTINA_PROVINCES, {
+    message: 'Debe ser una provincia válida de Argentina',
   })
-  pais: string;
+  province: ArgentinaProvince; // ✅ Cambio de department a province
 
-  @IsString({
-    message: 'El departamento es obligatorio y debe ser una cadena de texto.',
+  @IsString({ message: 'La ciudad debe ser texto' })
+  @Length(2, 50, { message: 'La ciudad debe tener entre 2 y 50 caracteres' })
+  city: string;
+
+  @IsString({ message: 'El código postal debe ser texto' })
+  @Matches(
+    /^[A-Z]?\d{4}[A-Z]{0,3}$/,
+    {
+      message:
+        'El código postal debe tener formato argentino válido (ej: C1000AAA o 1000)',
+    },
+  )
+  postalCode: string;
+
+  @IsString({ message: 'La dirección debe ser texto' })
+  @Length(5, 200, {
+    message: 'La dirección debe tener entre 5 y 200 caracteres',
   })
-  departamento: string;
+  streetAddress: string;
 
-  @IsString({
-    message: 'La ciudad es obligatoria y debe ser una cadena de texto.',
+  @IsOptional()
+  @IsString({ message: 'La línea adicional debe ser texto' })
+  @Length(1, 200, {
+    message: 'La línea adicional debe tener máximo 200 caracteres',
   })
-  ciudad: string;
-
-  @IsString()
-  @Length(3, 10)
-  codigoPostal: string;
-
-  @IsString()
-  @Length(5, 100)
-  direccionLinea1: string;
+  addressLine2?: string;
 
   @IsOptional()
-  @IsString({ message: 'La dirección línea 2 debe ser una cadena de texto.' })
-  direccionLinea2?: string;
+  @IsString({ message: 'El barrio debe ser texto' })
+  @Length(1, 100, {
+    message: 'El barrio debe tener máximo 100 caracteres',
+  })
+  neighborhood?: string;
 
   @IsOptional()
-  @IsString({ message: 'La referencia debe ser una cadena de texto.' })
-  referencia?: string;
+  @IsString({ message: 'El punto de referencia debe ser texto' })
+  @Length(1, 200, {
+    message: 'El punto de referencia debe tener máximo 200 caracteres',
+  })
+  landmark?: string;
 
   @IsOptional()
-  @IsString({ message: 'Las notas de entrega deben ser una cadena de texto.' })
-  notasEntrega?: string;
+  @IsString({ message: 'Las instrucciones deben ser texto' })
+  @Length(1, 500, {
+    message: 'Las instrucciones deben tener máximo 500 caracteres',
+  })
+  deliveryInstructions?: string;
 
   @IsOptional()
-  @IsBoolean({ message: 'El campo "esPrincipal" debe ser un valor booleano.' })
-  esPrincipal?: boolean;
+  @IsString({ message: 'La preferencia de horario debe ser texto' })
+  deliveryTimePreference?: string;
+
+  @IsOptional()
+  @IsEnum(['Casa', 'Trabajo', 'Otro'], {
+    message: 'La etiqueta debe ser: Casa, Trabajo, o Otro',
+  })
+  label?: 'Casa' | 'Trabajo' | 'Otro';
+
+  @IsOptional()
+  @IsBoolean({ message: 'isDefault debe ser true o false' })
+  isDefault?: boolean = false;
 }
