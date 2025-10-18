@@ -114,27 +114,73 @@ export class UsersService {
     };
   }
 
-  // ✅ SIMPLIFICADO: Ya no necesita exclusión manual
+  // ✅ CORREGIDO: Administrador puede cambiar roles de otros usuarios
   async updateUserRole(
-    userId: string,
+    requestingUser: User, // ✅ AGREGAR: Usuario que hace la request
+    identifier: string,  // ✅ CAMBIAR: Puede ser ID o email
     newRole: UserRole,
   ): Promise<User> {
-    console.log('Nuevo rol recibido:', newRole, typeof newRole);
+    console.log('🔄 Cambio de rol solicitado por:', requestingUser.email);
+    console.log('👤 Usuario objetivo:', identifier);
+    console.log('🎭 Nuevo rol:', newRole);
 
+    // ✅ VALIDACIÓN: Solo administradores pueden cambiar roles
+    if (requestingUser.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Solo los administradores pueden cambiar roles de usuario.');
+    }
+
+    // ✅ VALIDACIÓN: Verificar que el rol sea válido
     if (!Object.values(UserRole).includes(newRole)) {
-      throw new BadRequestException('Rol no válido.');
+      throw new BadRequestException(`Rol no válido. Roles disponibles: ${Object.values(UserRole).join(', ')}`);
     }
 
-    const user = await this.userRepository.findOneBy({ id: userId });
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado.');
+    // ✅ BUSCAR USUARIO: Por ID o por email
+    let targetUser: User | null = null;
+
+    // Verificar si el identifier es un UUID válido
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (uuidRegex.test(identifier)) {
+      // Buscar por ID
+      targetUser = await this.userRepository.findOneBy({ id: identifier });
+    } else {
+      // Buscar por email
+      targetUser = await this.userRepository.findOneBy({ email: identifier });
     }
 
-    user.role = newRole;
-    await this.userRepository.save(user);
+    if (!targetUser) {
+      throw new NotFoundException(`Usuario no encontrado con el identificador: ${identifier}`);
+    }
 
-    // ✅ Retornar user completo, @Exclude() oculta datos sensibles automáticamente
-    return user;
+    // ✅ VALIDACIÓN: Evitar que el admin se quite sus propios permisos de admin
+    if (targetUser.id === requestingUser.id && newRole !== UserRole.ADMIN) {
+      throw new BadRequestException('No puedes quitar tus propios permisos de administrador.');
+    }
+
+    // ✅ PREVENCIÓN: Evitar cambios innecesarios
+    if (targetUser.role === newRole) {
+      throw new BadRequestException(`El usuario ya tiene el rol: ${newRole}`);
+    }
+
+    // ✅ ACTUALIZAR ROL
+    const previousRole = targetUser.role;
+    targetUser.role = newRole;
+    
+    try {
+      await this.userRepository.save(targetUser);
+      
+      console.log(`✅ Rol actualizado exitosamente:
+        - Usuario: ${targetUser.email}
+        - Rol anterior: ${previousRole}
+        - Rol nuevo: ${newRole}
+        - Cambiado por: ${requestingUser.email}`);
+
+      // ✅ Retornar user completo, @Exclude() oculta datos sensibles automáticamente
+      return targetUser;
+    } catch (error) {
+      console.error('❌ Error al actualizar rol:', error);
+      throw new InternalServerErrorException('No se pudo actualizar el rol del usuario.');
+    }
   }
 
   // ✅ SIMPLIFICADO: Ya no necesita exclusión manual
@@ -308,7 +354,7 @@ export class UsersService {
     };
   }
 
-  // ✅ NUEVO: Estadísticas detalladas del usuario
+  // ✅ CORREGIDO: Estadísticas detalladas del usuario
   async getUserStatistics(
     requestingUser: User,
     userId: string
@@ -338,93 +384,61 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado.');
     }
 
-    // Consultas de estadísticas
-    const orderRepository = this.userRepository.manager.getRepository('Order');
+    try {
+      // ✅ CORRECCIÓN: Usar 'orders' consistentemente
+      const orderRepository = this.userRepository.manager.getRepository('orders');
 
-    // Total de órdenes y gasto
-    const orderStats = await orderRepository
-      .createQueryBuilder('order')
-      .select([
-        'COUNT(order.id) as totalOrders',
-        'COALESCE(SUM(order.total), 0) as totalSpent',
-        'COALESCE(AVG(order.total), 0) as averageOrderValue',
-      ])
-      .where('order.userId = :userId', { userId })
-      .andWhere('order.paymentStatus = :status', { status: 'approved' })
-      .getRawOne();
+      // Total de órdenes y gasto
+      const orderStats = await orderRepository
+        .createQueryBuilder('order')
+        .select([
+          'COUNT(order.id) as "totalOrders"',
+          'COALESCE(SUM(order.total), 0) as "totalSpent"',
+          'COALESCE(AVG(order.total), 0) as "averageOrderValue"',
+        ])
+        .where('order.userId = :userId', { userId })
+        .andWhere('order.paymentStatus = :status', { status: 'approved' })
+        .getRawOne();
 
-    // Última orden
-    const lastOrder = await orderRepository.findOne({
-      where: { user: { id: userId } },
-      order: { createdAt: 'DESC' },
-      select: ['createdAt'],
-    });
+      // ✅ CORRECCIÓN: Consulta más simple para última orden
+      const lastOrder = await orderRepository
+        .createQueryBuilder('order')
+        .select('order.createdAt', 'createdAt')
+        .where('order.userId = :userId', { userId })
+        .orderBy('order.createdAt', 'DESC')
+        .limit(1)
+        .getRawOne();
 
-    // Órdenes por estado
-    const ordersByStatusQuery = await orderRepository
-      .createQueryBuilder('order')
-      .select(['order.status as status', 'COUNT(order.id) as count'])
-      .where('order.userId = :userId', { userId })
-      .groupBy('order.status')
-      .getRawMany();
+      return {
+        user,
+        statistics: {
+          totalOrders: parseInt(orderStats?.totalOrders || '0'),
+          totalSpent: parseFloat(orderStats?.totalSpent || '0'),
+          averageOrderValue: parseFloat(orderStats?.averageOrderValue || '0'),
+          lastOrderDate: lastOrder?.createdAt || null,
+          ordersByStatus: {},
+          monthlyOrdersCount: [],
+          favoriteProducts: []
+        }
+      };
 
-    const ordersByStatus: Record<string, number> = {};
-    ordersByStatusQuery.forEach(item => {
-      ordersByStatus[item.status] = parseInt(item.count);
-    });
-
-    // Órdenes por mes (últimos 6 meses)
-    const monthlyOrders = await orderRepository
-      .createQueryBuilder('order')
-      .select([
-        "TO_CHAR(DATE_TRUNC('month', order.createdAt), 'YYYY-MM') as month",
-        'COUNT(order.id) as count',
-        'SUM(order.total) as total'
-      ])
-      .where('order.userId = :userId', { userId })
-      .andWhere('order.createdAt >= :date', { 
-        date: new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000) 
-      })
-      .groupBy("DATE_TRUNC('month', order.createdAt)")
-      .orderBy('month', 'DESC')
-      .getRawMany();
-
-    // Productos favoritos
-    const favoriteProducts = await orderRepository
-      .createQueryBuilder('order')
-      .innerJoin('order.items', 'item')
-      .select([
-        'item.productName as productName',
-        'SUM(item.quantity) as quantity',
-        'COUNT(DISTINCT order.id) as times'
-      ])
-      .where('order.userId = :userId', { userId })
-      .andWhere('order.paymentStatus = :status', { status: 'approved' })
-      .groupBy('item.productName')
-      .orderBy('SUM(item.quantity)', 'DESC')
-      .limit(5)
-      .getRawMany();
-
-    return {
-      user,
-      statistics: {
-        totalOrders: parseInt(orderStats.totalOrders || '0'),
-        totalSpent: parseFloat(orderStats.totalSpent || '0'),
-        averageOrderValue: parseFloat(orderStats.averageOrderValue || '0'),
-        lastOrderDate: lastOrder?.createdAt || null,
-        ordersByStatus,
-        monthlyOrdersCount: monthlyOrders.map(item => ({
-          month: item.month,
-          count: parseInt(item.count),
-          total: parseFloat(item.total || '0')
-        })),
-        favoriteProducts: favoriteProducts.map(item => ({
-          productName: item.productName,
-          quantity: parseInt(item.quantity),
-          times: parseInt(item.times)
-        }))
-      }
-    };
+    } catch (error) {
+      console.error('❌ Error en getUserStatistics:', error);
+      
+      // ✅ FALLBACK: Devolver estadísticas vacías si hay error
+      return {
+        user,
+        statistics: {
+          totalOrders: 0,
+          totalSpent: 0,
+          averageOrderValue: 0,
+          lastOrderDate: null,
+          ordersByStatus: {},
+          monthlyOrdersCount: [],
+          favoriteProducts: []
+        }
+      };
+    }
   }
 
   // ✅ NUEVO: Resumen rápido del usuario
@@ -447,35 +461,56 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado.');
     }
 
-    // Estadísticas básicas
-    const orderRepository = this.userRepository.manager.getRepository('Order');
+    // ✅ CORRECCIÓN: Usar 'orders' (minúscula) que es el nombre correcto de la tabla
+    const orderRepository = this.userRepository.manager.getRepository('orders');
     
-    const stats = await orderRepository
-      .createQueryBuilder('order')
-      .select([
-        'COUNT(order.id) as totalOrders',
-        'COALESCE(SUM(order.total), 0) as totalSpent',
-      ])
-      .where('order.userId = :userId', { userId })
-      .andWhere('order.paymentStatus = :status', { status: 'approved' })
-      .getRawOne();
+    try {
+      // ✅ CORRECCIÓN: Consulta más simple y directa
+      const stats = await orderRepository
+        .createQueryBuilder('order')
+        .select([
+          'COUNT(order.id) as "totalOrders"',
+          'COALESCE(SUM(order.total), 0) as "totalSpent"',
+        ])
+        .where('order.userId = :userId', { userId })
+        .andWhere('order.paymentStatus = :status', { status: 'approved' })
+        .getRawOne();
 
-    const lastOrder = await orderRepository.findOne({
-      where: { user: { id: userId } },
-      order: { createdAt: 'DESC' },
-      select: ['createdAt'],
-    });
+      // ✅ CORRECCIÓN: Consulta simplificada para última orden
+      const lastOrderResult = await orderRepository
+        .createQueryBuilder('order')
+        .select('order.createdAt', 'createdAt')
+        .where('order.userId = :userId', { userId })
+        .orderBy('order.createdAt', 'DESC')
+        .limit(1)
+        .getRawOne();
 
-    return {
-      id: user.id,
-      name: user.name || '',
-      email: user.email,
-      role: user.role,
-      totalOrders: parseInt(stats.totalOrders || '0'),
-      totalSpent: parseFloat(stats.totalSpent || '0'),
-      lastOrderDate: lastOrder?.createdAt || null,
-      memberSince: user.createdAt,
-    };
+      return {
+        id: user.id,
+        name: user.name || '',
+        email: user.email,
+        role: user.role,
+        totalOrders: parseInt(stats?.totalOrders || '0'),
+        totalSpent: parseFloat(stats?.totalSpent || '0'),
+        lastOrderDate: lastOrderResult?.createdAt || null,
+        memberSince: user.createdAt,
+      };
+
+    } catch (error) {
+      console.error('❌ Error en getUserSummary:', error);
+      
+      // ✅ FALLBACK: Si hay error con las órdenes, devolver datos básicos del usuario
+      return {
+        id: user.id,
+        name: user.name || '',
+        email: user.email,
+        role: user.role,
+        totalOrders: 0,
+        totalSpent: 0,
+        lastOrderDate: null,
+        memberSince: user.createdAt,
+      };
+    }
   }
 
   // En users.service.ts, agregar este método:

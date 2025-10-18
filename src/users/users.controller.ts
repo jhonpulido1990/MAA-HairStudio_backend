@@ -22,10 +22,51 @@ import { UpdateUserDto } from 'src/auth/dto/update_user';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RolesGuard } from 'src/auth/roles/roles.guard';
 import { Roles } from 'src/auth/roles/roles.decorator';
+import * as bcrypt from 'bcrypt';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Post('forgot-password')
+  async forgotPassword(@Body('email') email: string) {
+    return this.usersService.sendPasswordResetEmail(email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    const { token, newPassword } = resetPasswordDto;
+    return this.usersService.resetPassword(token, newPassword);
+  }
+
+  // ✅ NUEVO: Mi perfil completo (usuario actual)
+  @Get('me/profile')
+  @UseGuards(AuthGuard('jwt'))
+  async getMyProfile(@Req() req: { user: User }) {
+    return this.usersService.getUserStatistics(req.user, req.user.id);
+  }
+
+  // ✅ NUEVO: Mis órdenes (usuario actual)
+  @Get('me/orders')
+  @UseGuards(AuthGuard('jwt'))
+  async getMyOrders(
+    @Req() req: { user: User },
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ) {
+    return this.usersService.getUserWithOrders(
+      req.user,
+      req.user.id,
+      Number(page),
+      Number(limit)
+    );
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Delete('me')
+  async deleteOwnAccount(@Req() req: { user: User }) {
+    return this.usersService.deleteOwnAccount(req.user);
+  }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('admin', 'custom')
@@ -43,23 +84,94 @@ export class UsersController {
     return this.usersService.findAll(Number(page), Number(limit));
   }
 
+  // ✅ NUEVO: Historial de órdenes del usuario
+  @Get(':id/orders')
+  @UseGuards(AuthGuard('jwt'))
+  async getUserOrders(
+    @Param('id', new ParseUUIDPipe({
+      version: '4',
+      errorHttpStatusCode: 400,
+      exceptionFactory: () =>
+        new BadRequestException('El id debe tener formato UUID v4 válido.'),
+    })) userId: string,
+    @Req() req: { user: User },
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ) {
+    return this.usersService.getUserWithOrders(
+      req.user,
+      userId,
+      Number(page),
+      Number(limit)
+    );
+  }
+
+  // ✅ NUEVO: Estadísticas detalladas del usuario
+  @Get(':id/statistics')
+  @UseGuards(AuthGuard('jwt'))
+  async getUserStatistics(
+    @Param('id', new ParseUUIDPipe({
+      version: '4',
+      errorHttpStatusCode: 400,
+      exceptionFactory: () =>
+        new BadRequestException('El id debe tener formato UUID v4 válido.'),
+    })) userId: string,
+    @Req() req: { user: User },
+  ) {
+    return this.usersService.getUserStatistics(req.user, userId);
+  }
+
+  // ✅ NUEVO: Resumen del usuario (para admin dashboard)
+  @Get(':id/summary')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin', 'custom')
+  async getUserSummary(
+    @Param('id', new ParseUUIDPipe({
+      version: '4',
+      errorHttpStatusCode: 400,
+      exceptionFactory: () =>
+        new BadRequestException('El id debe tener formato UUID v4 válido.'),
+    })) userId: string,
+  ) {
+    return this.usersService.getUserSummary(userId);
+  }
+
+  // ✅ AGREGAR: Endpoint para getUserStats
+  @Get(':id/stats')
+  @UseGuards(AuthGuard('jwt'))
+  async getUserStatsSimple(
+    @Param('id', ParseUUIDPipe) userId: string,
+    @Req() req: { user: User },
+  ) {
+    return this.usersService.getUserStats(userId);
+  }
+
+  // ✅ AGREGAR: Endpoint para updatePassword (Admin)
+  @Patch(':id/password')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('admin')
-  @Patch(':id/role')
+  async updateUserPassword(
+    @Param('id', ParseUUIDPipe) userId: string,
+    @Body() updatePasswordDto: { newPassword: string },
+  ) {
+    const hashedPassword = await bcrypt.hash(updatePasswordDto.newPassword, 10);
+    await this.usersService.updatePassword(userId, hashedPassword);
+    return { message: 'Contraseña actualizada correctamente' };
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
+  @Patch(':identifier/role') // ✅ CAMBIAR: :identifier en lugar de :id
   async updateRole(
-    @Param(
-      'id',
-      new ParseUUIDPipe({
-        version: '4',
-        errorHttpStatusCode: 400,
-        exceptionFactory: () =>
-          new BadRequestException('El id debe tener formato UUID v4 válido.'),
-      }),
-    )
-    id: string,
+    @Req() req: { user: User }, // ✅ AGREGAR: Usuario que hace la request
+    @Param('identifier') identifier: string, // ✅ CAMBIAR: Puede ser ID o email
     @Body() updateUserRoleDto: UpdateUserRoleDto,
-  ): Promise<User> { // ✅ CAMBIO: Tipo simplificado
-    return this.usersService.updateUserRole(id, updateUserRoleDto.role);
+  ): Promise<User> {
+    return this.usersService.updateUserRole(
+      req.user,              // ✅ AGREGAR: Usuario autenticado (admin)
+      identifier,            // ✅ CAMBIAR: ID o email del usuario objetivo
+      updateUserRoleDto.role // Rol a asignar
+    );
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -100,17 +212,6 @@ export class UsersController {
     return this.usersService.deleteUser(req.user, id);
   }
 
-  @Post('forgot-password')
-  async forgotPassword(@Body('email') email: string) {
-    return this.usersService.sendPasswordResetEmail(email);
-  }
-
-  @Post('reset-password')
-  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-    const { token, newPassword } = resetPasswordDto;
-    return this.usersService.resetPassword(token, newPassword);
-  }
-
   @UseGuards(AuthGuard('jwt'))
   @Get(':id')
   async findOne(
@@ -127,86 +228,5 @@ export class UsersController {
     id: string,
   ): Promise<User | null> { // ✅ CAMBIO: Tipo simplificado
     return this.usersService.findOneById(req.user, id);
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Delete('me')
-  async deleteOwnAccount(@Req() req: { user: User }) {
-    return this.usersService.deleteOwnAccount(req.user);
-  }
-
-  // ✅ NUEVO: Historial de órdenes del usuario
-  @Get(':id/orders')
-  @UseGuards(AuthGuard('jwt'))
-  async getUserOrders(
-    @Param('id', new ParseUUIDPipe({
-      version: '4',
-      errorHttpStatusCode: 400,
-      exceptionFactory: () =>
-        new BadRequestException('El id debe tener formato UUID v4 válido.'),
-    })) userId: string,
-    @Req() req: { user: User },
-    @Query('page') page = 1,
-    @Query('limit') limit = 10,
-  ) {
-    return this.usersService.getUserWithOrders(
-      req.user, 
-      userId, 
-      Number(page), 
-      Number(limit)
-    );
-  }
-
-  // ✅ NUEVO: Estadísticas detalladas del usuario
-  @Get(':id/statistics')
-  @UseGuards(AuthGuard('jwt'))
-  async getUserStatistics(
-    @Param('id', new ParseUUIDPipe({
-      version: '4',
-      errorHttpStatusCode: 400,
-      exceptionFactory: () =>
-        new BadRequestException('El id debe tener formato UUID v4 válido.'),
-    })) userId: string,
-    @Req() req: { user: User },
-  ) {
-    return this.usersService.getUserStatistics(req.user, userId);
-  }
-
-  // ✅ NUEVO: Resumen del usuario (para admin dashboard)
-  @Get(':id/summary')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('admin', 'custom')
-  async getUserSummary(
-    @Param('id', new ParseUUIDPipe({
-      version: '4',
-      errorHttpStatusCode: 400,
-      exceptionFactory: () =>
-        new BadRequestException('El id debe tener formato UUID v4 válido.'),
-    })) userId: string,
-  ) {
-    return this.usersService.getUserSummary(userId);
-  }
-
-  // ✅ NUEVO: Mi perfil completo (usuario actual)
-  @Get('me/profile')
-  @UseGuards(AuthGuard('jwt'))
-  async getMyProfile(@Req() req: { user: User }) {
-    return this.usersService.getUserStatistics(req.user, req.user.id);
-  }
-
-  // ✅ NUEVO: Mis órdenes (usuario actual)
-  @Get('me/orders')
-  @UseGuards(AuthGuard('jwt'))
-  async getMyOrders(
-    @Req() req: { user: User },
-    @Query('page') page = 1,
-    @Query('limit') limit = 10,
-  ) {
-    return this.usersService.getUserWithOrders(
-      req.user, 
-      req.user.id, 
-      Number(page), 
-      Number(limit)
-    );
   }
 }
