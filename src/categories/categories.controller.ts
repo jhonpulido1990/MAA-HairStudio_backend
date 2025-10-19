@@ -19,11 +19,13 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/auth/roles/roles.guard';
 import { Roles } from 'src/auth/roles/roles.decorator';
+import { ReorderCategoriesDto } from './dto/reorder-categories.dto';
 
 @Controller('categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
+  // ✅ 1. RUTAS POST PRIMERO
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('admin', 'custom')
@@ -31,7 +33,7 @@ export class CategoriesController {
     return this.categoriesService.create(createCategoryDto);
   }
 
-  // ✅ MEJORADO: findAll con filtros y paginación
+  // ✅ 2. RUTAS GET SIN PARÁMETROS
   @Get()
   async findAll(
     @Query('page', new ParseIntPipe({ optional: true })) page = 1,
@@ -42,13 +44,11 @@ export class CategoriesController {
     return this.categoriesService.findAll(page, limit, search, includeSubcategories);
   }
 
-  // ✅ NUEVO: Endpoint para obtener categorías sin paginación (para selects)
   @Get('all')
   async findAllForSelect() {
     return this.categoriesService.findAllForSelect();
   }
 
-  // ✅ NUEVO: Estadísticas de categorías
   @Get('statistics')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('admin', 'custom')
@@ -56,12 +56,25 @@ export class CategoriesController {
     return this.categoriesService.getCategoriesStats();
   }
 
-  // ✅ NUEVO: Buscar por slug
+  // ✅ 3. RUTAS GET CON PARÁMETROS ESPECÍFICOS (ANTES DE :id)
   @Get('slug/:slug')
   async findBySlug(@Param('slug') slug: string) {
     return this.categoriesService.findBySlug(slug);
   }
 
+  // ✅ 4. RUTAS PATCH ESPECÍFICAS (ANTES DE :id)
+  @Patch('reorder')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin', 'custom')
+  async reorderCategories(
+    @Body() reorderDto: ReorderCategoriesDto,
+  ) {
+    console.log('🎯 Ejecutando PATCH /categories/reorder');
+    console.log('📦 DTO recibido:', reorderDto);
+    return this.categoriesService.reorderCategories(reorderDto.categories);
+  }
+
+  // ✅ 5. RUTAS CON PARÁMETROS DINÁMICOS (SIEMPRE AL FINAL)
   @Get(':id')
   async findOne(
     @Param('id', new ParseUUIDPipe({
@@ -71,6 +84,7 @@ export class CategoriesController {
         new BadRequestException('El id debe tener formato UUID v4 válido.'),
     })) id: string,
   ) {
+    console.log('🎯 Ejecutando GET /categories/:id con id:', id);
     return this.categoriesService.findOne(id);
   }
 
@@ -86,17 +100,8 @@ export class CategoriesController {
     })) id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
   ) {
+    console.log('🎯 Ejecutando PATCH /categories/:id con id:', id);
     return this.categoriesService.update(id, updateCategoryDto);
-  }
-
-  // ✅ NUEVO: Reordenar categorías
-  @Patch('reorder')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('admin', 'custom')
-  async reorderCategories(
-    @Body() categoryOrders: Array<{ id: string; displayOrder: number }>,
-  ) {
-    return this.categoriesService.reorderCategories(categoryOrders);
   }
 
   @Delete(':id')

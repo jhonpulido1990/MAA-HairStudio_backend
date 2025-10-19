@@ -175,48 +175,105 @@ export class CategoriesService {
     return { message: 'Categoría eliminada correctamente.' };
   }
 
-  // ✅ NUEVO: Reordenar categorías
+  // ✅ MEJORADO: Reordenar categorías con validaciones robustas
   async reorderCategories(categoryOrders: Array<{ id: string; displayOrder: number }>): Promise<{ message: string }> {
-    const promises = categoryOrders.map(async ({ id, displayOrder }) => {
-      await this.categoryRepository.update(id, { displayOrder });
+    if (!categoryOrders || categoryOrders.length === 0) {
+      throw new BadRequestException('No se proporcionaron categorías para reordenar');
+    }
+
+    // ✅ Verificar que todas las categorías existen
+    const categoryIds = categoryOrders.map(item => item.id);
+    const existingCategories = await this.categoryRepository.findByIds(categoryIds);
+    
+    if (existingCategories.length !== categoryIds.length) {
+      const foundIds = existingCategories.map(cat => cat.id);
+      const missingIds = categoryIds.filter(id => !foundIds.includes(id));
+      throw new NotFoundException(`Categorías no encontradas: ${missingIds.join(', ')}`);
+    }
+
+    // ✅ Validar que no hay displayOrder duplicados
+    const displayOrders = categoryOrders.map(item => item.displayOrder);
+    const uniqueDisplayOrders = [...new Set(displayOrders)];
+    
+    if (displayOrders.length !== uniqueDisplayOrders.length) {
+      throw new BadRequestException('No se pueden tener valores de displayOrder duplicados');
+    }
+
+    // ✅ Validar que todos los displayOrder son números válidos
+    for (const order of categoryOrders) {
+      if (!Number.isInteger(order.displayOrder) || order.displayOrder < 0) {
+        throw new BadRequestException(`displayOrder debe ser un número entero mayor o igual a 0. Valor inválido: ${order.displayOrder}`);
+      }
+    }
+
+    // ✅ Actualizar en transacción para mantener consistencia
+    await this.categoryRepository.manager.transaction(async (manager) => {
+      const updatePromises = categoryOrders.map(({ id, displayOrder }) => 
+        manager.update(Category, id, { displayOrder })
+      );
+      
+      await Promise.all(updatePromises);
     });
 
-    await Promise.all(promises);
-    return { message: 'Orden de categorías actualizado correctamente.' };
+    return { message: `Orden de ${categoryOrders.length} categorías actualizado correctamente.` };
   }
 
-  // ✅ NUEVO: Obtener estadísticas de categorías
+  // ✅ CORREGIDO: Obtener estadísticas de categorías con consultas más simples
   async getCategoriesStats(): Promise<{
     totalCategories: number;
     categoriesWithSubcategories: number;
     averageSubcategoriesPerCategory: number;
   }> {
-    const totalCategories = await this.categoryRepository.count();
-    
-    const categoriesWithSubcategoriesCount = await this.categoryRepository
-      .createQueryBuilder('category')
-      .innerJoin('category.subcategories', 'subcategory')
-      .getCount();
+    try {
+      // ✅ Total de categorías
+      const totalCategories = await this.categoryRepository.count();
+      
+      // ✅ Categorías que tienen subcategorías (usando DISTINCT)
+      const categoriesWithSubcategoriesCount = await this.categoryRepository
+        .createQueryBuilder('category')
+        .innerJoin('category.subcategories', 'subcategory')
+        .select('COUNT(DISTINCT category.id)', 'count')
+        .getRawOne();
 
-    const avgResult = await this.categoryRepository
-      .createQueryBuilder('category')
-      .leftJoin('category.subcategories', 'subcategory')
-      .select('AVG(subcount.count)', 'average')
-      .from(subquery => {
-        return subquery
-          .select('category.id', 'id')
-          .addSelect('COUNT(subcategory.id)', 'count')
-          .from(Category, 'category')
-          .leftJoin('category.subcategories', 'subcategory')
-          .groupBy('category.id');
-      }, 'subcount')
-      .getRawOne();
+      // ✅ Promedio de subcategorías por categoría (consulta más simple)
+      const subcategoryCountsRaw = await this.categoryRepository
+        .createQueryBuilder('category')
+        .leftJoin('category.subcategories', 'subcategory')
+        .select([
+          'category.id as categoryId',
+          'COUNT(subcategory.id) as subcategoryCount'
+        ])
+        .groupBy('category.id')
+        .getRawMany();
 
-    return {
-      totalCategories,
-      categoriesWithSubcategories: categoriesWithSubcategoriesCount,
-      averageSubcategoriesPerCategory: parseFloat(avgResult?.average || '0'),
-    };
+      // ✅ Calcular promedio en JavaScript (más confiable)
+      const totalSubcategoriesCount = subcategoryCountsRaw.reduce(
+        (sum, item) => sum + parseInt(item.subcategorycount || '0'), 
+        0
+      );
+      
+      const averageSubcategoriesPerCategory = totalCategories > 0 
+        ? totalSubcategoriesCount / totalCategories 
+        : 0;
+
+      return {
+        totalCategories,
+        categoriesWithSubcategories: parseInt(categoriesWithSubcategoriesCount?.count || '0'),
+        averageSubcategoriesPerCategory: Math.round(averageSubcategoriesPerCategory * 100) / 100, // 2 decimales
+      };
+
+    } catch (error) {
+      console.error('❌ Error en getCategoriesStats:', error);
+      
+      // ✅ FALLBACK: Devolver estadísticas básicas si hay error
+      const totalCategories = await this.categoryRepository.count();
+      
+      return {
+        totalCategories,
+        categoriesWithSubcategories: 0,
+        averageSubcategoriesPerCategory: 0,
+      };
+    }
   }
 
   // ✅ MÉTODOS PRIVADOS DE UTILIDAD
