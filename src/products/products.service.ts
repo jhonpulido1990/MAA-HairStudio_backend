@@ -172,7 +172,10 @@ export class ProductsService {
           .addOrderBy('product.reviewCount', 'DESC');
         break;
       case 'popularity':
-        queryBuilder.orderBy('(product.viewCount * 0.1 + product.purchaseCount * 2 + product.rating * product.reviewCount * 0.5)', sortOrder);
+        // ✅ CORREGIDO: Usar addSelect para la expresión compleja
+        queryBuilder
+          .addSelect('(product.viewCount * 0.1 + product.purchaseCount * 2 + product.rating * product.reviewCount * 0.5)', 'popularity_score')
+          .orderBy('popularity_score', sortOrder);
         break;
       default:
         queryBuilder.orderBy('product.createdAt', sortOrder);
@@ -443,12 +446,16 @@ export class ProductsService {
 
   async findBySlug(slug: string): Promise<Product> {
     const product = await this.productRepository.findOne({
-      where: { slug },
-      relations: ['category', 'brand'], // Add any relations you need
+      where: { slug, isActive: true },
+      relations: ['subcategory', 'subcategory.category'], // ✅ CORREGIDO: Usar la relación correcta
     });
+    
     if (!product) {
       throw new NotFoundException(`Producto con slug "${slug}" no encontrado`);
     }
+
+    // ✅ OPCIONAL: Incrementar vistas para consulta de usuario
+    await this.incrementViewCount(product.id);
 
     return product;
   }
