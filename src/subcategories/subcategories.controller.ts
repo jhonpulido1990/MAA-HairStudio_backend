@@ -113,6 +113,12 @@ export class SubcategoriesController {
     return this.subcategoriesService.reorderSubcategories(categoryId, subcategoryOrders);
   }
 
+  // ✅ NUEVO: Buscar subcategoría por slug
+  @Get('slug/:slug')
+  async findBySlug(@Param('slug') slug: string) {
+    return this.subcategoriesService.findBySlug(slug);
+  }
+
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('admin', 'custom')
