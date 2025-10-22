@@ -63,6 +63,7 @@ export class ProductsService {
       subcategoryId,
       categoryId,
       brand,
+      collection, // ← NUEVO FILTRO
       type_hair,
       desired_result,
       minPrice,
@@ -94,6 +95,7 @@ export class ProductsService {
           product.name ILIKE :search OR 
           product.description ILIKE :search OR 
           product.brand ILIKE :search OR 
+          product.collection ILIKE :search OR 
           product.tags::text ILIKE :search OR
           product.sku ILIKE :search
         )`,
@@ -112,6 +114,11 @@ export class ProductsService {
 
     if (brand) {
       queryBuilder.andWhere('product.brand ILIKE :brand', { brand: `%${brand}%` });
+    }
+
+    // ✅ NUEVO FILTRO: COLLECTION
+    if (collection) {
+      queryBuilder.andWhere('product.collection ILIKE :collection', { collection: `%${collection}%` });
     }
 
     if (type_hair) {
@@ -204,6 +211,8 @@ export class ProductsService {
         search: search || null,
         category: categoryId || null,
         subcategory: subcategoryId || null,
+        brand: brand || null,
+        collection: collection || null, // ← NUEVO METADATA
         priceRange: minPrice || maxPrice ? { min: minPrice, max: maxPrice } : null,
       }
     };
@@ -487,6 +496,8 @@ export class ProductsService {
     const {
       subcategoryId,
       categoryId,
+      brand,
+      collection, // ← NUEVO FILTRO EN BÚSQUEDA
       limit = 20,
       page = 1
     } = filters;
@@ -502,12 +513,12 @@ export class ProductsService {
       queryBuilder
         .addSelect(`
           ts_rank_cd(
-            to_tsvector('spanish', product.name || ' ' || COALESCE(product.description, '') || ' ' || COALESCE(product.brand, '')),
+            to_tsvector('spanish', product.name || ' ' || COALESCE(product.description, '') || ' ' || COALESCE(product.brand, '') || ' ' || COALESCE(product.collection, '')),
             plainto_tsquery('spanish', :query)
           )
         `, 'search_rank')
         .andWhere(`
-          to_tsvector('spanish', product.name || ' ' || COALESCE(product.description, '') || ' ' || COALESCE(product.brand, ''))
+          to_tsvector('spanish', product.name || ' ' || COALESCE(product.description, '') || ' ' || COALESCE(product.brand, '') || ' ' || COALESCE(product.collection, ''))
           @@ plainto_tsquery('spanish', :query)
         `, { query: query.trim() })
         .orderBy('search_rank', 'DESC')
@@ -520,6 +531,15 @@ export class ProductsService {
 
     if (categoryId) {
       queryBuilder.andWhere('subcategory.categoryId = :categoryId', { categoryId });
+    }
+
+    if (brand) {
+      queryBuilder.andWhere('product.brand ILIKE :brand', { brand: `%${brand}%` });
+    }
+
+    // ✅ NUEVO FILTRO EN BÚSQUEDA
+    if (collection) {
+      queryBuilder.andWhere('product.collection ILIKE :collection', { collection: `%${collection}%` });
     }
 
     const skip = (page - 1) * limit;
@@ -537,5 +557,25 @@ export class ProductsService {
         query: query?.trim() || null
       }
     };
+  }
+
+  // ✅ NUEVO: Obtener todas las colecciones disponibles
+  async getAvailableCollections(): Promise<Array<{ collection: string; count: number }>> {
+    const result = await this.productRepository
+      .createQueryBuilder('product')
+      .select('product.collection', 'collection')
+      .addSelect('COUNT(*)', 'count')
+      .where('product.isActive = true')
+      .andWhere('product.collection IS NOT NULL')
+      .andWhere('product.collection != \'\'')
+      .groupBy('product.collection')
+      .orderBy('count', 'DESC')
+      .addOrderBy('product.collection', 'ASC')
+      .getRawMany();
+
+    return result.map(item => ({
+      collection: item.collection,
+      count: parseInt(item.count)
+    }));
   }
 }

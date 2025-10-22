@@ -259,12 +259,13 @@ export class ProductsController {
   }
 
   // ✅ AGREGAR ESTE ENDPOINT después de los otros endpoints específicos
-
   @Get('search')
   async searchProducts(
     @Query('q') query: string,
     @Query('subcategoryId') subcategoryId?: string,
     @Query('categoryId') categoryId?: string,
+    @Query('brand') brand?: string,
+    @Query('collection') collection?: string, // ← NUEVO PARÁMETRO
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number
   ) {
@@ -275,6 +276,8 @@ export class ProductsController {
     const filters = {
       subcategoryId,
       categoryId, 
+      brand,
+      collection, // ← INCLUIR EN FILTROS
       page,
       limit
     };
@@ -285,6 +288,39 @@ export class ProductsController {
       success: true,
       message: 'Búsqueda realizada exitosamente',
       ...result,
+    };
+  }
+
+  // ✅ NUEVO: Obtener productos por colección
+  @Get('collection/:collectionName')
+  async getProductsByCollection(
+    @Param('collectionName') collectionName: string,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number
+  ) {
+    const filters: ProductFilterDto = {
+      collection: collectionName,
+      limit,
+      page
+    };
+
+    const result = await this.productsService.findAll(filters);
+    return {
+      success: true,
+      message: `Productos de la colección "${collectionName}" obtenidos exitosamente`,
+      ...result,
+    };
+  }
+
+  // ✅ NUEVO: Obtener todas las colecciones disponibles
+  @Get('collections/list')
+  async getAvailableCollections() {
+    // Este método necesita ser implementado en el service
+    const collections = await this.productsService.getAvailableCollections();
+    return {
+      success: true,
+      message: 'Colecciones disponibles obtenidas exitosamente',
+      data: collections,
     };
   }
 }

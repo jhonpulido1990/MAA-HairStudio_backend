@@ -37,11 +37,12 @@ export enum DesiredResult {
 }
 
 @Entity('products')
-// ✅ Índices para mejor rendimiento
+// ✅ Agregar índice para collection
 @Index('idx_products_name_active', ['name', 'isActive'])
 @Index('idx_products_price_active', ['price', 'isActive'])
 @Index('idx_products_brand_active', ['brand', 'isActive'])
 @Index('idx_products_featured_active', ['isFeatured', 'isActive'])
+@Index('idx_products_collection_active', ['collection', 'isActive']) // ← NUEVO ÍNDICE
 // ✅ Constraints de validación
 @Check('chk_products_price_positive', 'price > 0')
 @Check('chk_products_stock_non_negative', 'stock >= 0')
@@ -162,6 +163,11 @@ export class Product {
   @Column({ type: 'varchar', length: 100, nullable: true })
   @Index('idx_products_brand')
   brand?: string;
+
+  // ✅ NUEVO CAMPO: COLLECTION
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Index('idx_products_collection')
+  collection?: string;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   volume?: string;

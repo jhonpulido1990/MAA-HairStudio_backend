@@ -124,6 +124,13 @@ export class CreateProductDto {
   @Transform(({ value }) => value?.trim())
   brand?: string;
 
+  // ✅ NUEVO CAMPO: COLLECTION
+  @IsOptional()
+  @IsString({ message: 'La colección debe ser una cadena de texto.' })
+  @Length(1, 100, { message: 'La colección debe tener entre 1 y 100 caracteres.' })
+  @Transform(({ value }) => value?.trim())
+  collection?: string;
+
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El tamaño debe ser un número.' })
   @Min(0.01, { message: 'El tamaño debe ser mayor a 0.' })

@@ -78,6 +78,11 @@ export class ProductFilterDto {
   @IsString()
   brand?: string;
 
+  // ✅ NUEVO FILTRO: COLLECTION
+  @IsOptional()
+  @IsString()
+  collection?: string;
+
   @IsOptional()
   @IsEnum(HairType)
   type_hair?: HairType;
