@@ -25,7 +25,7 @@ import { Roles } from 'src/auth/roles/roles.decorator';
 
 interface AuthRequest extends Request {
   user: {
-    userId: string;
+    id: string;
     email: string;
     role: UserRole.ADMIN | UserRole.USER | UserRole.CUSTOM;
   };
@@ -51,7 +51,7 @@ export class WishlistController {
       throw new BadRequestException('El límite debe estar entre 1 y 50');
     }
 
-    return await this.wishlistService.getWishlist(req.user.userId, page, limit);
+    return await this.wishlistService.getWishlist(req.user.id, page, limit);
   }
 
   // ✅ AGREGAR PRODUCTO A LA WISHLIST
@@ -60,7 +60,7 @@ export class WishlistController {
     @Request() req: AuthRequest,
     @Body() addToWishlistDto: AddToWishlistDto,
   ) {
-    return await this.wishlistService.addToWishlist(req.user.userId, addToWishlistDto);
+    return await this.wishlistService.addToWishlist(req.user.id, addToWishlistDto);
   }
 
   // ✅ ELIMINAR PRODUCTO DE LA WISHLIST
@@ -69,7 +69,7 @@ export class WishlistController {
     @Request() req: AuthRequest,
     @Param('productId', ParseUUIDPipe) productId: string,
   ) {
-    return await this.wishlistService.removeFromWishlist(req.user.userId, productId);
+    return await this.wishlistService.removeFromWishlist(req.user.id, productId);
   }
 
   // ✅ MOVER PRODUCTO AL CARRITO
@@ -78,13 +78,13 @@ export class WishlistController {
     @Request() req: AuthRequest,
     @Body() moveToCartDto: MoveToCartDto,
   ) {
-    return await this.wishlistService.moveToCart(req.user.userId, moveToCartDto);
+    return await this.wishlistService.moveToCart(req.user.id, moveToCartDto);
   }
 
   // ✅ LIMPIAR TODA LA WISHLIST
   @Delete('clear')
   async clearWishlist(@Request() req: AuthRequest) {
-    return await this.wishlistService.clearWishlist(req.user.userId);
+    return await this.wishlistService.clearWishlist(req.user.id);
   }
 
   // ✅ VERIFICAR SI UN PRODUCTO ESTÁ EN LA WISHLIST
@@ -93,7 +93,7 @@ export class WishlistController {
     @Request() req: AuthRequest,
     @Param('productId', ParseUUIDPipe) productId: string,
   ) {
-    const result = await this.wishlistService.isInWishlist(req.user.userId, productId);
+    const result = await this.wishlistService.isInWishlist(req.user.id, productId);
     return {
       success: true,
       message: 'Verificación completada',
@@ -104,36 +104,45 @@ export class WishlistController {
   // ✅ OBTENER PRODUCTOS CON CAMBIOS DE PRECIO
   @Get('price-changes')
   async getPriceChanges(@Request() req: AuthRequest) {
-    return await this.wishlistService.getItemsWithPriceChanges(req.user.userId);
+    return await this.wishlistService.getItemsWithPriceChanges(req.user.id);
   }
 
-  // ✅ OBTENER CANTIDAD DE ITEMS (endpoint rápido para badges)
+  // ✅ ENDPOINT ESPECÍFICO PARA CONTEO (sin paginación)
   @Get('count')
   async getWishlistCount(@Request() req: AuthRequest) {
-    const wishlist = await this.wishlistService.getWishlist(req.user.userId, 1, 1);
-
+    const count = await this.wishlistService.getWishlistCount(req.user.id);
     return {
       success: true,
-      message: 'Cantidad obtenida exitosamente',
-      data: {
-        totalItems: wishlist.summary.totalItems,
-        totalValue: wishlist.summary.totalValue,
-        availableItems: wishlist.summary.availableItems,
-        unavailableItems: wishlist.summary.unavailableItems,
-      },
+      message: 'Conteo de wishlist obtenido exitosamente',
+      data: count,
     };
   }
 
-  // ✅ INCREMENTAR CONTADOR DE VISTAS DE UN PRODUCTO
+  // ✅ ENDPOINT DE DEBUGGING (solo para desarrollo)
+  @Get('debug/states')
+  async debugWishlistStates(@Request() req: AuthRequest) {
+    const states = await this.wishlistService.debugWishlistStates(req.user.id);
+    return {
+      success: true,
+      message: 'Estados de wishlist obtenidos exitosamente',
+      data: states,
+    };
+  }
+
+  // ✅ NUEVO: INCREMENTAR CONTADOR DE VISTAS
   @Post('view/:productId')
   async incrementViewCount(
     @Request() req: AuthRequest,
     @Param('productId', ParseUUIDPipe) productId: string,
   ) {
-    await this.wishlistService.incrementViewCount(req.user.userId, productId);
+    await this.wishlistService.incrementViewCount(req.user.id, productId);
     return {
       success: true,
       message: 'Vista registrada exitosamente',
+      data: {
+        productId,
+        timestamp: new Date().toISOString(),
+      },
     };
   }
 

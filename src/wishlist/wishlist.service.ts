@@ -83,7 +83,7 @@ export class WishlistService {
     }
   }
 
-  // ✅ AGREGAR PRODUCTO A LA WISHLIST
+  // ✅ AGREGAR PRODUCTO A LA WISHLIST - CORREGIDO
   async addToWishlist(
     userId: string,
     addToWishlistDto: AddToWishlistDto,
@@ -104,31 +104,51 @@ export class WishlistService {
         );
       }
 
-      // Verificar si el producto ya está en la wishlist
+      // ✅ CORREGIDO: Buscar producto tanto activo como inactivo
       const existingItem = await queryRunner.manager.findOne(Wishlist, {
-        where: { userId, productId, isActive: true },
+        where: { userId, productId }, // ← QUITAR isActive: true de aquí
       });
 
-      if (existingItem) {
+      if (existingItem?.isActive) {
+        // Si ya está activo, lanzar conflicto
         throw new ConflictException('El producto ya está en tu wishlist');
       }
 
-      // Crear nuevo item en la wishlist
-      const wishlistItem = queryRunner.manager.create(Wishlist, {
-        userId,
-        productId,
-        note,
-        visibility,
-        priceWhenAdded: product.finalPrice || product.price,
-        viewCount: 0,
-        isActive: true,
-      });
+      let savedItem: Wishlist;
 
-      await queryRunner.manager.save(wishlistItem);
+      if (existingItem && !existingItem.isActive) {
+        // ✅ REACTIVAR producto existente pero inactivo
+        existingItem.note = note || '';
+        existingItem.visibility = visibility;
+        existingItem.priceWhenAdded = product.finalPrice || product.price;
+        existingItem.viewCount = 0;
+        existingItem.isActive = true;
+        existingItem.lastViewedAt = new Date();
+        existingItem.updatedAt = new Date();
 
-      this.logger.log(
-        `Producto ${productId} agregado a la wishlist del usuario ${userId}`,
-      );
+        savedItem = await queryRunner.manager.save(existingItem);
+
+        this.logger.log(
+          `Producto ${productId} reactivado en la wishlist del usuario ${userId}`,
+        );
+      } else {
+        // ✅ CREAR nuevo item si no existe
+        const wishlistItem = queryRunner.manager.create(Wishlist, {
+          userId,
+          productId,
+          note,
+          visibility,
+          priceWhenAdded: product.finalPrice || product.price,
+          viewCount: 0,
+          isActive: true,
+        });
+
+        savedItem = await queryRunner.manager.save(wishlistItem);
+
+        this.logger.log(
+          `Producto ${productId} agregado a la wishlist del usuario ${userId}`,
+        );
+      }
 
       await queryRunner.commitTransaction();
 
@@ -137,7 +157,9 @@ export class WishlistService {
 
       return {
         success: true,
-        message: 'Producto agregado a la wishlist exitosamente',
+        message: existingItem && !existingItem.isActive 
+          ? 'Producto reagregado a la wishlist exitosamente'
+          : 'Producto agregado a la wishlist exitosamente',
         action: 'added',
         affectedItem: {
           productId,
@@ -406,13 +428,13 @@ export class WishlistService {
     }
   }
 
-  // ✅ INCREMENTAR CONTADOR DE VISTAS
+  // ✅ INCREMENTAR CONTADOR DE VISTAS - CORREGIDO
   async incrementViewCount(userId: string, productId: string): Promise<void> {
     try {
       await this.wishlistRepository.update(
         { userId, productId, isActive: true },
         {
-          viewCount: () => 'view_count + 1',
+          viewCount: () => '"viewCount" + 1',  // ✅ CORREGIDO: usar "viewCount" con comillas
           lastViewedAt: new Date(),
         },
       );
@@ -422,6 +444,105 @@ export class WishlistService {
         error,
       );
       // No lanzar error aquí, es una operación secundaria
+    }
+  }
+
+  // ✅ NUEVO: FUNCIÓN ESPECÍFICA PARA CONTEO DE WISHLIST
+  async getWishlistCount(userId: string): Promise<{
+    totalItems: number;
+    totalValue: number;
+    availableItems: number;
+    unavailableItems: number;
+  }> {
+    try {
+      // ✅ CONTEO DIRECTO Y PRECISO
+      const activeItems = await this.wishlistRepository.find({
+        where: { userId, isActive: true },
+        relations: ['product'],
+        select: ['id', 'productId', 'priceWhenAdded'],
+      });
+
+      let totalValue = 0;
+      let availableItems = 0;
+      let unavailableItems = 0;
+
+      // ✅ CALCULAR MÉTRICAS PRECISAS
+      for (const item of activeItems) {
+        if (item.product) {
+          const price = item.product.finalPrice || item.product.price;
+          totalValue += price;
+
+          try {
+            const availability = await this.productsService.checkAvailability(
+              item.productId,
+              1,
+            );
+            if (availability.available) {
+              availableItems++;
+            } else {
+              unavailableItems++;
+            }
+          } catch {
+            unavailableItems++;
+          }
+        }
+      }
+
+      const result = {
+        totalItems: activeItems.length,
+        totalValue: Number(totalValue.toFixed(2)),
+        availableItems,
+        unavailableItems,
+      };
+
+      this.logger.debug(
+        `Conteo de wishlist para usuario ${userId}: ${JSON.stringify(result)}`,
+      );
+
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Error al contar items de wishlist del usuario ${userId}:`,
+        error,
+      );
+      return {
+        totalItems: 0,
+        totalValue: 0,
+        availableItems: 0,
+        unavailableItems: 0,
+      };
+    }
+  }
+
+  // ✅ FUNCIÓN DE DEBUGGING PARA VERIFICAR ESTADOS
+  async debugWishlistStates(userId: string): Promise<{
+    activeItems: Array<{ id: string; productId: string; isActive: boolean; createdAt: Date; updatedAt: Date }>;
+    inactiveItems: Array<{ id: string; productId: string; isActive: boolean; createdAt: Date; updatedAt: Date }>;
+    totalActiveCount: number;
+    totalInactiveCount: number;
+  }> {
+    try {
+      const allItems = await this.wishlistRepository.find({
+        where: { userId },
+        select: ['id', 'productId', 'isActive', 'createdAt', 'updatedAt'],
+        order: { createdAt: 'DESC' },
+      });
+
+      const activeItems = allItems.filter(item => item.isActive);
+      const inactiveItems = allItems.filter(item => !item.isActive);
+
+      return {
+        activeItems,
+        inactiveItems,
+        totalActiveCount: activeItems.length,
+        totalInactiveCount: inactiveItems.length,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error al debuggear estados de wishlist del usuario ${userId}:`,
+        error,
+      );
+      throw new BadRequestException('Error al obtener estados de wishlist');
     }
   }
 
