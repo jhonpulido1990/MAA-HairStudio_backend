@@ -34,6 +34,7 @@ export enum DesiredResult {
   CONTROL_GRASA = 'Control de grasa',
   CRECIMIENTO = 'Crecimiento',
   COLOR_PROTECT = 'Protección del color',
+  DEFINICIÓN = 'Definición',
 }
 
 @Entity('products')
