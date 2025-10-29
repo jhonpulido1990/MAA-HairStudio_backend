@@ -134,13 +134,13 @@ export class ProductsService {
       queryBuilder.andWhere('product.type_product = :type_product', { type_product });
     }
 
-    // ✅ FILTROS DE PRECIO
+    // ✅ FILTROS DE PRECIO - CORREGIDO
     if (minPrice !== undefined) {
-      queryBuilder.andWhere('product.finalPrice >= :minPrice', { minPrice });
+      queryBuilder.andWhere('product.price >= :minPrice', { minPrice });
     }
 
     if (maxPrice !== undefined) {
-      queryBuilder.andWhere('product.finalPrice <= :maxPrice', { maxPrice });
+      queryBuilder.andWhere('product.price <= :maxPrice', { maxPrice });
     }
 
     if (minRating !== undefined) {
@@ -163,14 +163,14 @@ export class ProductsService {
       }
     }
 
-    // ✅ ORDENAMIENTO MEJORADO
+    // ✅ ORDENAMIENTO MEJORADO - CORREGIDO
     const applySorting = () => {
       switch (sortBy) {
         case 'price':
-          queryBuilder.orderBy('product.finalPrice', sortOrder);
+          queryBuilder.orderBy('product.price', sortOrder);
           break;
-        case 'finalPrice':
-          queryBuilder.orderBy('product.finalPrice', sortOrder);
+        case 'finalPrice': // ✅ CAMBIAR: Usar price en lugar de finalPrice
+          queryBuilder.orderBy('product.price', sortOrder);
           break;
         case 'name':
           queryBuilder.orderBy('product.name', sortOrder);
