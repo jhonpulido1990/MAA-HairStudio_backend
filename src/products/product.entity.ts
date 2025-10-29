@@ -13,7 +13,30 @@ import {
 } from 'typeorm';
 import { Subcategory } from '../subcategories/subcategory.entity';
 
-// ✅ Enums para campos específicos de peluquería
+// ✅ NUEVO ENUM para tipos de producto
+export enum ProductType {
+  SHAMPOO = 'Shampoo',
+  ACONDICIONADOR = 'Acondicionador',
+  MASCARILLA = 'Mascarilla',
+  SERUM = 'Serum',
+  ACEITE = 'Aceite',
+  SPRAY = 'Spray',
+  CREMA = 'Crema',
+  GEL = 'Gel',
+  MOUSSE = 'Mousse',
+  CERA = 'Cera',
+  POMADA = 'Pomada',
+  TRATAMIENTO = 'Tratamiento',
+  TINTE = 'Tinte',
+  DECOLORANTE = 'Decolorante',
+  PROTECTOR_TERMICO = 'Protector Térmico',
+  LEAVE_IN = 'Leave-in',
+  AMPOLLA = 'Ampolla',
+  TONICO = 'Tónico',
+  EXFOLIANTE = 'Exfoliante',
+}
+
+// ✅ Enums existentes
 export enum HairType {
   GRASO = 'Graso',
   SECO = 'Seco',
@@ -38,12 +61,13 @@ export enum DesiredResult {
 }
 
 @Entity('products')
-// ✅ Agregar índice para collection
+// ✅ Agregar índice para type_product
 @Index('idx_products_name_active', ['name', 'isActive'])
 @Index('idx_products_price_active', ['price', 'isActive'])
 @Index('idx_products_brand_active', ['brand', 'isActive'])
 @Index('idx_products_featured_active', ['isFeatured', 'isActive'])
-@Index('idx_products_collection_active', ['collection', 'isActive']) // ← NUEVO ÍNDICE
+@Index('idx_products_collection_active', ['collection', 'isActive'])
+@Index('idx_products_type_product_active', ['type_product', 'isActive']) // ← NUEVO ÍNDICE
 // ✅ Constraints de validación
 @Check('chk_products_price_positive', 'price > 0')
 @Check('chk_products_stock_non_negative', 'stock >= 0')
@@ -84,6 +108,15 @@ export class Product {
   })
   @Index('idx_products_desired_result')
   desired_result?: DesiredResult;
+
+  // ✅ NUEVO CAMPO: TYPE_PRODUCT
+  @Column({
+    type: 'enum',
+    enum: ProductType,
+    nullable: true
+  })
+  @Index('idx_products_type_product')
+  type_product?: ProductType;
 
   // ✅ PRICING mejorado
   @Column({ 

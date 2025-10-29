@@ -1,5 +1,5 @@
 import { PartialType, OmitType } from '@nestjs/mapped-types';
-import { CreateProductDto, HairType, DesiredResult } from './create-product.dto';
+import { CreateProductDto, HairType, DesiredResult, ProductType } from './create-product.dto';
 import { 
   IsOptional, 
   IsNumber, 
@@ -8,7 +8,8 @@ import {
   IsEnum,
   IsString,
   IsUUID,
-  Max
+  Max,
+  IsIn
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
@@ -78,7 +79,6 @@ export class ProductFilterDto {
   @IsString()
   brand?: string;
 
-  // ✅ NUEVO FILTRO: COLLECTION
   @IsOptional()
   @IsString()
   collection?: string;
@@ -90,6 +90,11 @@ export class ProductFilterDto {
   @IsOptional()
   @IsEnum(DesiredResult)
   desired_result?: DesiredResult;
+
+  // ✅ NUEVO FILTRO: TYPE_PRODUCT
+  @IsOptional()
+  @IsEnum(ProductType)
+  type_product?: ProductType;
 
   @IsOptional()
   @IsNumber()
@@ -112,56 +117,40 @@ export class ProductFilterDto {
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.toLowerCase() === 'true';
-    }
-    return value;
-  })
+  @Type(() => Boolean)
   isFeatured?: boolean;
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.toLowerCase() === 'true';
-    }
-    return value;
-  })
+  @Type(() => Boolean)
   isOnSale?: boolean;
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.toLowerCase() === 'true';
-    }
-    return value;
-  })
+  @Type(() => Boolean)
   inStock?: boolean;
 
+  // ✅ NUEVOS CAMPOS PARA ORDENAMIENTO
   @IsOptional()
-  @IsEnum(['name', 'price', 'rating', 'createdAt', 'popularity'], {
-    message: 'sortBy debe ser: name, price, rating, createdAt, o popularity'
-  })
-  sortBy?: 'name' | 'price' | 'rating' | 'createdAt' | 'popularity';
+  @IsIn(['name', 'price', 'finalPrice', 'rating', 'popularity', 'createdAt', 'updatedAt', 'brand', 'viewCount'])
+  sortBy?: 'name' | 'price' | 'finalPrice' | 'rating' | 'popularity' | 'createdAt' | 'updatedAt' | 'brand' | 'viewCount';
 
   @IsOptional()
-  @IsEnum(['ASC', 'DESC'])
+  @IsIn(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC';
 
   @IsOptional()
   @IsNumber()
   @Min(1)
   @Type(() => Number)
-  page?: number = 1;
+  page?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(100)
   @Type(() => Number)
-  limit?: number = 10;
+  limit?: number;
 }
 
-export { HairType, DesiredResult };
+export { HairType, DesiredResult, ProductType };

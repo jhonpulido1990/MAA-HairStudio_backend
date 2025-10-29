@@ -15,7 +15,7 @@ import {
   ArrayMaxSize,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { HairType, DesiredResult } from '../product.entity';
+import { HairType, DesiredResult, ProductType } from '../product.entity';
 
 export class CreateProductDto {
   @IsString({ message: 'El nombre debe ser una cadena de texto.' })
@@ -57,6 +57,13 @@ export class CreateProductDto {
     message: `El resultado deseado debe ser uno de: ${Object.values(DesiredResult).join(', ')}`,
   })
   desired_result?: DesiredResult;
+
+  // ✅ NUEVO CAMPO: TYPE_PRODUCT
+  @IsOptional()
+  @IsEnum(ProductType, {
+    message: `El tipo de producto debe ser uno de: ${Object.values(ProductType).join(', ')}`,
+  })
+  type_product?: ProductType;
 
   // ✅ PRICING con validaciones robustas
   @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El precio debe ser un número con máximo 2 decimales.' })
@@ -188,4 +195,4 @@ export class CreateProductDto {
 }
 
 // ✅ Exportar enums para reutilización
-export { HairType, DesiredResult };
+export { HairType, DesiredResult, ProductType };

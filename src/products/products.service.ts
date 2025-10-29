@@ -63,9 +63,10 @@ export class ProductsService {
       subcategoryId,
       categoryId,
       brand,
-      collection, // ← NUEVO FILTRO
+      collection,
       type_hair,
       desired_result,
+      type_product, // ← NUEVO FILTRO
       minPrice,
       maxPrice,
       minRating,
@@ -78,17 +79,17 @@ export class ProductsService {
       limit = 10
     } = filters;
 
-    // ✅ Validar paginación
+    // Validar parámetros de paginación
     const validatedPage = Math.max(1, page);
-    const validatedLimit = Math.min(100, Math.max(1, limit));
+    const validatedLimit = Math.min(Math.max(1, limit), 100);
 
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.subcategory', 'subcategory')
       .leftJoinAndSelect('subcategory.category', 'category')
-      .where('product.isActive = :isActive', { isActive: true });
+      .where('product.isActive = true');
 
-    // ✅ BÚSQUEDA OPTIMIZADA con índices
+    // ✅ FILTROS EXISTENTES
     if (search) {
       queryBuilder.andWhere(
         `(
@@ -96,6 +97,7 @@ export class ProductsService {
           product.description ILIKE :search OR 
           product.brand ILIKE :search OR 
           product.collection ILIKE :search OR 
+          product.type_product ILIKE :search OR 
           product.tags::text ILIKE :search OR
           product.sku ILIKE :search
         )`,
@@ -103,7 +105,6 @@ export class ProductsService {
       );
     }
 
-    // ✅ FILTROS CON ÍNDICES OPTIMIZADOS
     if (subcategoryId) {
       queryBuilder.andWhere('product.subcategoryId = :subcategoryId', { subcategoryId });
     }
@@ -116,7 +117,6 @@ export class ProductsService {
       queryBuilder.andWhere('product.brand ILIKE :brand', { brand: `%${brand}%` });
     }
 
-    // ✅ NUEVO FILTRO: COLLECTION
     if (collection) {
       queryBuilder.andWhere('product.collection ILIKE :collection', { collection: `%${collection}%` });
     }
@@ -129,70 +129,90 @@ export class ProductsService {
       queryBuilder.andWhere('product.desired_result = :desired_result', { desired_result });
     }
 
-    // ✅ FILTROS DE RANGO optimizados
-    if (minPrice !== undefined && maxPrice !== undefined) {
-      queryBuilder.andWhere('product.price BETWEEN :minPrice AND :maxPrice', { minPrice, maxPrice });
-    } else {
-      if (minPrice !== undefined) {
-        queryBuilder.andWhere('product.price >= :minPrice', { minPrice });
-      }
-      if (maxPrice !== undefined) {
-        queryBuilder.andWhere('product.price <= :maxPrice', { maxPrice });
-      }
+    // ✅ NUEVO FILTRO: TYPE_PRODUCT
+    if (type_product) {
+      queryBuilder.andWhere('product.type_product = :type_product', { type_product });
+    }
+
+    // ✅ FILTROS DE PRECIO
+    if (minPrice !== undefined) {
+      queryBuilder.andWhere('product.finalPrice >= :minPrice', { minPrice });
+    }
+
+    if (maxPrice !== undefined) {
+      queryBuilder.andWhere('product.finalPrice <= :maxPrice', { maxPrice });
     }
 
     if (minRating !== undefined) {
       queryBuilder.andWhere('product.rating >= :minRating', { minRating });
     }
 
-    // ✅ FILTROS BOOLEANOS optimizados
     if (isFeatured !== undefined) {
       queryBuilder.andWhere('product.isFeatured = :isFeatured', { isFeatured });
     }
 
     if (isOnSale !== undefined) {
-      if (isOnSale) {
-        queryBuilder.andWhere('product.discountPercentage > 0 AND product.isAvailable = true');
-      } else {
-        queryBuilder.andWhere('product.discountPercentage = 0');
-      }
+      queryBuilder.andWhere('product.isOnSale = :isOnSale', { isOnSale });
     }
 
     if (inStock !== undefined) {
       if (inStock) {
-        queryBuilder.andWhere('(product.trackInventory = false OR (product.trackInventory = true AND product.stock > 0))');
+        queryBuilder.andWhere('product.stock > 0 AND product.isAvailable = true');
       } else {
-        queryBuilder.andWhere('product.trackInventory = true AND product.stock <= 0');
+        queryBuilder.andWhere('product.stock <= 0 OR product.isAvailable = false');
       }
     }
 
-    // ✅ ORDENAMIENTO CON ÍNDICES
-    switch (sortBy) {
-      case 'name':
-        queryBuilder.orderBy('product.name', sortOrder);
-        break;
-      case 'price':
-        queryBuilder.orderBy('product.price', sortOrder);
-        break;
-      case 'rating':
-        queryBuilder.orderBy('product.rating', sortOrder)
-          .addOrderBy('product.reviewCount', 'DESC');
-        break;
-      case 'popularity':
-        // ✅ CORREGIDO: Usar addSelect para la expresión compleja
-        queryBuilder
-          .addSelect('(product.viewCount * 0.1 + product.purchaseCount * 2 + product.rating * product.reviewCount * 0.5)', 'popularity_score')
+    // ✅ ORDENAMIENTO MEJORADO
+    const applySorting = () => {
+      switch (sortBy) {
+        case 'price':
+          queryBuilder.orderBy('product.finalPrice', sortOrder);
+          break;
+        case 'finalPrice':
+          queryBuilder.orderBy('product.finalPrice', sortOrder);
+          break;
+        case 'name':
+          queryBuilder.orderBy('product.name', sortOrder);
+          break;
+        case 'rating':
+          queryBuilder.orderBy('product.rating', sortOrder);
+          // Segundo criterio: productos con más reseñas primero
+          queryBuilder.addOrderBy('product.reviewCount', 'DESC');
+          break;
+        case 'popularity':
+          // Ordenar por popularidad (combinación de vistas, compras y rating)
+          queryBuilder.addSelect(`
+            (product.viewCount * 0.3 + 
+             product.purchaseCount * 0.5 + 
+             product.rating * product.reviewCount * 0.2)
+          `, 'popularity_score')
           .orderBy('popularity_score', sortOrder);
-        break;
-      default:
-        queryBuilder.orderBy('product.createdAt', sortOrder);
-    }
+          break;
+        case 'brand':
+          queryBuilder.orderBy('product.brand', sortOrder);
+          queryBuilder.addOrderBy('product.name', 'ASC');
+          break;
+        case 'viewCount':
+          queryBuilder.orderBy('product.viewCount', sortOrder);
+          break;
+        case 'updatedAt':
+          queryBuilder.orderBy('product.updatedAt', sortOrder);
+          break;
+        case 'createdAt':
+        default:
+          queryBuilder.orderBy('product.createdAt', sortOrder);
+          break;
+      }
+    };
 
-    // ✅ PAGINACIÓN OPTIMIZADA
-    const skip = (validatedPage - 1) * validatedLimit;
-    queryBuilder.skip(skip).take(validatedLimit);
+    applySorting();
 
-    // ✅ EJECUTAR CON CONTEO OPTIMIZADO
+    // ✅ PAGINACIÓN
+    const offset = (validatedPage - 1) * validatedLimit;
+    queryBuilder.skip(offset).take(validatedLimit);
+
+    // ✅ EJECUTAR CONSULTA
     const [products, total] = await queryBuilder.getManyAndCount();
 
     return {
@@ -205,15 +225,16 @@ export class ProductsService {
         hasNextPage: validatedPage < Math.ceil(total / validatedLimit),
         hasPrevPage: validatedPage > 1,
       },
-      // ✅ METADATA ADICIONAL ÚTIL
       filters: {
         applied: Object.keys(filters).length,
         search: search || null,
         category: categoryId || null,
         subcategory: subcategoryId || null,
         brand: brand || null,
-        collection: collection || null, // ← NUEVO METADATA
+        collection: collection || null,
+        type_product: type_product || null, // ← NUEVO METADATA
         priceRange: minPrice || maxPrice ? { min: minPrice, max: maxPrice } : null,
+        sorting: { sortBy, sortOrder }
       }
     };
   }
@@ -497,7 +518,8 @@ export class ProductsService {
       subcategoryId,
       categoryId,
       brand,
-      collection, // ← NUEVO FILTRO EN BÚSQUEDA
+      collection,
+      type_product, // ← NUEVO FILTRO EN BÚSQUEDA
       limit = 20,
       page = 1
     } = filters;
@@ -513,12 +535,12 @@ export class ProductsService {
       queryBuilder
         .addSelect(`
           ts_rank_cd(
-            to_tsvector('spanish', product.name || ' ' || COALESCE(product.description, '') || ' ' || COALESCE(product.brand, '') || ' ' || COALESCE(product.collection, '')),
+            to_tsvector('spanish', product.name || ' ' || COALESCE(product.description, '') || ' ' || COALESCE(product.brand, '') || ' ' || COALESCE(product.collection, '') || ' ' || COALESCE(product.type_product, '')),
             plainto_tsquery('spanish', :query)
           )
         `, 'search_rank')
         .andWhere(`
-          to_tsvector('spanish', product.name || ' ' || COALESCE(product.description, '') || ' ' || COALESCE(product.brand, '') || ' ' || COALESCE(product.collection, ''))
+          to_tsvector('spanish', product.name || ' ' || COALESCE(product.description, '') || ' ' || COALESCE(product.brand, '') || ' ' || COALESCE(product.collection, '') || ' ' || COALESCE(product.type_product, ''))
           @@ plainto_tsquery('spanish', :query)
         `, { query: query.trim() })
         .orderBy('search_rank', 'DESC')
@@ -540,6 +562,11 @@ export class ProductsService {
     // ✅ NUEVO FILTRO EN BÚSQUEDA
     if (collection) {
       queryBuilder.andWhere('product.collection ILIKE :collection', { collection: `%${collection}%` });
+    }
+
+    // ✅ NUEVO FILTRO EN BÚSQUEDA
+    if (type_product) {
+      queryBuilder.andWhere('product.type_product = :type_product', { type_product });
     }
 
     const skip = (page - 1) * limit;
@@ -575,6 +602,25 @@ export class ProductsService {
 
     return result.map(item => ({
       collection: item.collection,
+      count: parseInt(item.count)
+    }));
+  }
+
+  // ✅ NUEVO: Obtener todos los tipos de producto disponibles
+  async getAvailableProductTypes(): Promise<Array<{ type_product: string; count: number }>> {
+    const result = await this.productRepository
+      .createQueryBuilder('product')
+      .select('product.type_product', 'type_product')
+      .addSelect('COUNT(*)', 'count')
+      .where('product.isActive = true')
+      .andWhere('product.type_product IS NOT NULL')
+      .groupBy('product.type_product')
+      .orderBy('count', 'DESC')
+      .addOrderBy('product.type_product', 'ASC')
+      .getRawMany();
+
+    return result.map(item => ({
+      type_product: item.type_product,
       count: parseInt(item.count)
     }));
   }

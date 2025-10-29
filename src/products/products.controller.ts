@@ -14,7 +14,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
-import { CreateProductDto } from './dto/create-product.dto';
+import { CreateProductDto, DesiredResult, HairType, ProductType } from './dto/create-product.dto';
 import { UpdateProductDto, ProductFilterDto, StockOperation } from './dto/update-product.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/auth/roles/roles.guard';
@@ -28,7 +28,47 @@ export class ProductsController {
   
   // Lista de productos con filtros (debe ir primero)
   @Get()
-  async findAll(@Query() filters: ProductFilterDto) {
+  async findAll(
+    @Query('search') search?: string,
+    @Query('subcategoryId') subcategoryId?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('brand') brand?: string,
+    @Query('collection') collection?: string,
+    @Query('type_hair') type_hair?: HairType,
+    @Query('desired_result') desired_result?: DesiredResult,
+    @Query('type_product') type_product?: ProductType, // ← NUEVO PARÁMETRO
+    @Query('minPrice', new DefaultValuePipe(0)) minPrice?: number,
+    @Query('maxPrice') maxPrice?: number,
+    @Query('minRating') minRating?: number,
+    @Query('isFeatured') isFeatured?: boolean,
+    @Query('isOnSale') isOnSale?: boolean,
+    @Query('inStock') inStock?: boolean,
+    @Query('sortBy', new DefaultValuePipe('createdAt')) sortBy?: string,
+    @Query('sortOrder', new DefaultValuePipe('DESC')) sortOrder?: 'ASC' | 'DESC',
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit?: number,
+  ) {
+    const filters: ProductFilterDto = {
+      search,
+      subcategoryId,
+      categoryId,
+      brand,
+      collection,
+      type_hair,
+      desired_result,
+      type_product, // ← INCLUIR EN FILTROS
+      minPrice,
+      maxPrice,
+      minRating,
+      isFeatured,
+      isOnSale,
+      inStock,
+      sortBy: sortBy as any,
+      sortOrder,
+      page,
+      limit,
+    };
+
     const result = await this.productsService.findAll(filters);
     return {
       success: true,
@@ -265,7 +305,8 @@ export class ProductsController {
     @Query('subcategoryId') subcategoryId?: string,
     @Query('categoryId') categoryId?: string,
     @Query('brand') brand?: string,
-    @Query('collection') collection?: string, // ← NUEVO PARÁMETRO
+    @Query('collection') collection?: string,
+    @Query('type_product') type_product?: ProductType, // ← NUEVO PARÁMETRO
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number
   ) {
@@ -277,7 +318,8 @@ export class ProductsController {
       subcategoryId,
       categoryId, 
       brand,
-      collection, // ← INCLUIR EN FILTROS
+      collection,
+      type_product, // ← INCLUIR EN FILTROS
       page,
       limit
     };
@@ -321,6 +363,38 @@ export class ProductsController {
       success: true,
       message: 'Colecciones disponibles obtenidas exitosamente',
       data: collections,
+    };
+  }
+
+  // ✅ NUEVO: Obtener productos por tipo
+  @Get('type/:productType')
+  async getProductsByType(
+    @Param('productType') productType: string,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number
+  ) {
+    const filters: ProductFilterDto = {
+      type_product: productType as ProductType,
+      limit,
+      page
+    };
+
+    const result = await this.productsService.findAll(filters);
+    return {
+      success: true,
+      message: `Productos de tipo "${productType}" obtenidos exitosamente`,
+      ...result,
+    };
+  }
+
+  // ✅ NUEVO: Obtener todos los tipos de producto disponibles
+  @Get('types/list')
+  async getAvailableProductTypes() {
+    const types = await this.productsService.getAvailableProductTypes();
+    return {
+      success: true,
+      message: 'Tipos de producto disponibles obtenidos exitosamente',
+      data: types,
     };
   }
 }
