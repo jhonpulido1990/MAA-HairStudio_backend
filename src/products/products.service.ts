@@ -89,7 +89,7 @@ export class ProductsService {
       .leftJoinAndSelect('subcategory.category', 'category')
       .where('product.isActive = true');
 
-    // ✅ FILTROS EXISTENTES
+    // ✅ FILTROS EXISTENTES - CORREGIDO
     if (search) {
       queryBuilder.andWhere(
         `(
@@ -97,7 +97,7 @@ export class ProductsService {
           product.description ILIKE :search OR 
           product.brand ILIKE :search OR 
           product.collection ILIKE :search OR 
-          product.type_product ILIKE :search OR 
+          product.type_product::text ILIKE :search OR 
           product.tags::text ILIKE :search OR
           product.sku ILIKE :search
         )`,
