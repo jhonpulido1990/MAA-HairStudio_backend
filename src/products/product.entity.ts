@@ -12,6 +12,7 @@ import {
   Check,
 } from 'typeorm';
 import { Subcategory } from '../subcategories/subcategory.entity';
+import { Address } from '../address/address.entity';
 
 // ✅ NUEVO ENUM para tipos de producto
 export enum ProductType {
@@ -58,6 +59,7 @@ export enum DesiredResult {
   CRECIMIENTO = 'Crecimiento',
   COLOR_PROTECT = 'Protección del color',
   DEFINICIÓN = 'Definición',
+  ANTIRRITACIÓN = 'Antirritación',
 }
 
 @Entity('products')
