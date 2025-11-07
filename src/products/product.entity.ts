@@ -35,25 +35,27 @@ export enum ProductType {
   AMPOLLA = 'Ampolla',
   TONICO = 'Tónico',
   EXFOLIANTE = 'Exfoliante',
+  OLEO = 'Oleo',
 }
 
 // ✅ Enums existentes
 export enum HairType {
   GRASO = 'Graso',
   SECO = 'Seco',
-  MIXTO = 'Mixto', 
+  MIXTO = 'Mixto',
   RIZADO = 'Rizado',
   LISO = 'Liso',
   ONDULADO = 'Ondulado',
   TEÑIDO = 'Teñido',
   DAÑADO = 'Dañado',
+  FINO = 'Fino',
 }
 
 export enum DesiredResult {
   HIDRATACION = 'Hidratación',
   VOLUMEN = 'Volumen',
   ANTI_CASPA = 'Anti-caspa',
-  REPARACION = 'Reparación', 
+  REPARACION = 'Reparación',
   BRILLO = 'Brillo',
   CONTROL_GRASA = 'Control de grasa',
   CRECIMIENTO = 'Crecimiento',
@@ -122,9 +124,9 @@ export class Product {
   type_product?: ProductType;
 
   // ✅ PRICING mejorado
-  @Column({ 
-    type: 'decimal', 
-    precision: 10, 
+  @Column({
+    type: 'decimal',
+    precision: 10,
     scale: 2,
     transformer: {
       to: (value: number) => value,
@@ -134,10 +136,10 @@ export class Product {
   @Index('idx_products_price')
   price: number;
 
-  @Column({ 
-    type: 'decimal', 
-    precision: 10, 
-    scale: 2, 
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
     nullable: true,
     transformer: {
       to: (value: number) => value,
@@ -146,10 +148,10 @@ export class Product {
   })
   originalPrice?: number;
 
-  @Column({ 
-    type: 'decimal', 
-    precision: 5, 
-    scale: 2, 
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
     default: 0,
     name: 'discount_percentage'
   })
@@ -172,7 +174,7 @@ export class Product {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE'
   })
-  @JoinColumn({ 
+  @JoinColumn({
     name: 'subcategory_id',
     foreignKeyConstraintName: 'fk_products_subcategory'
   })
@@ -186,8 +188,8 @@ export class Product {
   @Column({ type: 'text' })
   image: string;
 
-  @Column({ 
-    type: 'jsonb', 
+  @Column({
+    type: 'jsonb',
     nullable: true,
     default: () => "'[]'"
   })
@@ -217,10 +219,10 @@ export class Product {
   barcode?: string;
 
   // ✅ RATING Y REVIEWS
-  @Column({ 
-    type: 'decimal', 
-    precision: 3, 
-    scale: 2, 
+  @Column({
+    type: 'decimal',
+    precision: 3,
+    scale: 2,
     default: 0,
     transformer: {
       to: (value: number) => value,
@@ -252,8 +254,8 @@ export class Product {
   @Column({ type: 'varchar', length: 160, nullable: true })
   metaDescription?: string;
 
-  @Column({ 
-    type: 'jsonb', 
+  @Column({
+    type: 'jsonb',
     nullable: true,
     default: () => "'[]'"
   })
@@ -342,7 +344,7 @@ export class Product {
     const purchases = this.purchaseCount || 0;
     const rating = this.rating || 0;
     const reviews = this.reviewCount || 0;
-    
+
     return (views * 0.1) + (purchases * 2) + (rating * reviews * 0.5);
   }
 }
