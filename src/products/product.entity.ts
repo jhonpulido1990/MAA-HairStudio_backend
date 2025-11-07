@@ -35,6 +35,7 @@ export enum ProductType {
   AMPOLLA = 'Ampolla',
   TONICO = 'Tónico',
   EXFOLIANTE = 'Exfoliante',
+  OLEO = 'Oleo',
 }
 
 // ✅ Enums existentes
@@ -60,7 +61,8 @@ export enum DesiredResult {
   COLOR_PROTECT = 'Protección del color',
   DEFINICIÓN = 'Definición',
   ANTIRRITACIÓN = 'Antirritación',
-  ANTI_CAIDA = 'Anti-caída',
+  ANTI_CAIDA = 'Anticaída',
+  FINO = 'Fino',
 }
 
 @Entity('products')
