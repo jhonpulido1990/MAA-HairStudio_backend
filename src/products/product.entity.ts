@@ -61,7 +61,7 @@ export enum DesiredResult {
   COLOR_PROTECT = 'Protección del color',
   DEFINICIÓN = 'Definición',
   ANTIRRITACIÓN = 'Antirritación',
-  ANTI_CAIDA = 'Anticaída',
+  ANTI_CAIDA = 'Anti-caída',
   FINO = 'Fino',
 }
 
