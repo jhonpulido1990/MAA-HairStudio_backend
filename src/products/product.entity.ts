@@ -62,7 +62,7 @@ export enum DesiredResult {
   COLOR_PROTECT = 'Protección del color',
   DEFINICIÓN = 'Definición',
   ANTIRRITACIÓN = 'Antirritación',
-  ANTICAIDA = 'Anticaída',
+  ANTICAIDA = 'Anti-caída',
 }
 
 @Entity('products')
