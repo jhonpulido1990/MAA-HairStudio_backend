@@ -156,19 +156,26 @@ export class AuthService {
     return { message: 'Contraseña actualizada correctamente.' };
   }
 
-  // ✅ NUEVO: Refresh token (para implementación futura)
+  // ✅ NUEVO: Logout
+  async logout(userId: string): Promise<{ message: string }> {
+    // Para implementación futura: agregar token a blacklist
+    // Por ahora simplemente confirmamos el logout
+    return { message: 'Sesión cerrada correctamente' };
+  }
+
+  // ✅ NUEVO: Refresh Token
   async refreshToken(userId: string): Promise<{ access_token: string }> {
     const user = await this.usersService.findUserById(userId);
     if (!user) {
       throw new UnauthorizedException('Usuario no encontrado.');
     }
 
-    const payload: JwtPayload = { 
-      id: user.id, 
+    const payload: JwtPayload = {
+      id: user.id,
       email: user.email,
-      role: user.role 
+      role: user.role
     };
-    
+
     const access_token = this.jwtService.sign(payload);
 
     return { access_token };

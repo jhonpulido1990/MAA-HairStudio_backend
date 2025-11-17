@@ -108,12 +108,11 @@ export class AuthController {
     };
   }
 
-  // ✅ NUEVO: Logout (invalidar token - para implementación futura)
+  // ✅ Logout (invalidar token)
   @Post('logout')
   @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
   async logout(@Req() req: AuthRequest): Promise<{ message: string }> {
-    // Para implementación futura: agregar token a blacklist
-    return { message: 'Sesión cerrada correctamente' };
+    return this.authService.logout(req.user.id);
   }
 }
