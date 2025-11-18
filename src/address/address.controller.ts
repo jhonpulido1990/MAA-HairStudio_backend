@@ -22,7 +22,7 @@ import { Roles } from 'src/auth/roles/roles.decorator';
 
 interface AuthRequest extends Request {
   user: {
-    userId: string;
+    id: string;
     email: string;
     role: UserRole.ADMIN | UserRole.USER | UserRole.CUSTOM;
   };
@@ -36,7 +36,7 @@ export class AddressController {
   // ✅ OBTENER TODAS LAS DIRECCIONES DEL USUARIO
   @Get()
   async getAddresses(@Request() req: AuthRequest) {
-    return await this.addressService.getAddresses(req.user.userId);
+    return await this.addressService.getAddresses(req.user.id);
   }
 
   // ✅ OBTENER DIRECCIÓN POR ID
@@ -45,7 +45,7 @@ export class AddressController {
     @Request() req: AuthRequest,
     @Param('id', ParseUUIDPipe) addressId: string,
   ) {
-    return await this.addressService.getAddressById(req.user.userId, addressId);
+    return await this.addressService.getAddressById(req.user.id, addressId);
   }
 
   // ✅ CREAR NUEVA DIRECCIÓN
@@ -54,7 +54,7 @@ export class AddressController {
     @Request() req: AuthRequest,
     @Body() createAddressDto: CreateAddressDto,
   ) {
-    return await this.addressService.createAddress(req.user.userId, createAddressDto);
+    return await this.addressService.createAddress(req.user.id, createAddressDto);
   }
 
   // ✅ ACTUALIZAR DIRECCIÓN EXISTENTE
@@ -64,7 +64,7 @@ export class AddressController {
     @Param('id', ParseUUIDPipe) addressId: string,
     @Body() updateAddressDto: UpdateAddressDto,
   ) {
-    return await this.addressService.updateAddress(req.user.userId, addressId, updateAddressDto);
+    return await this.addressService.updateAddress(req.user.id, addressId, updateAddressDto);
   }
 
   // ✅ ELIMINAR DIRECCIÓN (SOFT DELETE)
@@ -73,7 +73,7 @@ export class AddressController {
     @Request() req: AuthRequest,
     @Param('id', ParseUUIDPipe) addressId: string,
   ) {
-    return await this.addressService.deleteAddress(req.user.userId, addressId);
+    return await this.addressService.deleteAddress(req.user.id, addressId);
   }
 
   // ✅ ESTABLECER DIRECCIÓN POR DEFECTO
@@ -82,7 +82,7 @@ export class AddressController {
     @Request() req: AuthRequest,
     @Param('id', ParseUUIDPipe) addressId: string,
   ) {
-    return await this.addressService.setDefaultAddress(req.user.userId, addressId);
+    return await this.addressService.setDefaultAddress(req.user.id, addressId);
   }
 
   // ✅ VALIDAR DIRECCIÓN ARGENTINA
@@ -91,13 +91,13 @@ export class AddressController {
     @Request() req: AuthRequest,
     @Param('id', ParseUUIDPipe) addressId: string,
   ) {
-    return await this.addressService.validateAddress(req.user.userId, addressId);
+    return await this.addressService.validateAddress(req.user.id, addressId);
   }
 
   // ✅ OBTENER DIRECCIÓN POR DEFECTO
   @Get('default/current')
   async getDefaultAddress(@Request() req: AuthRequest) {
-    const result = await this.addressService.getDefaultAddress(req.user.userId);
+    const result = await this.addressService.getDefaultAddress(req.user.id);
 
     if (!result) {
       return {

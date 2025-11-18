@@ -1,32 +1,30 @@
 import {
   IsString,
+  IsNotEmpty,
   IsOptional,
   IsEmail,
   IsBoolean,
-  IsIn,
-  Length,
+  MaxLength,
   Matches,
+  MinLength,
+  Length,
   IsEnum,
 } from 'class-validator';
-import {
-  ARGENTINA_PROVINCES,
-  ArgentinaProvince,
-} from '../constants/argentina-locations';
 
 export class CreateAddressDto {
+  // ✅ INFORMACIÓN DEL DESTINATARIO
   @IsString({ message: 'El nombre del destinatario debe ser texto' })
+  @IsNotEmpty({ message: 'El nombre del destinatario es obligatorio' })
   @Length(2, 100, {
     message: 'El nombre debe tener entre 2 y 100 caracteres',
   })
   recipientName: string;
 
-  @IsString({ message: 'El teléfono debe ser texto' })
-  @Matches(
-    /^(\+54|54)?[0-9]{8,12}$/,
-    {
-      message: 'El teléfono debe tener formato argentino válido (+541123456789)',
-    },
-  )
+  @IsString()
+  @IsNotEmpty({ message: 'El teléfono es obligatorio' })
+  @Matches(/^(\+54|54)?[0-9]{8,12}$/, {
+    message: 'El teléfono debe tener formato argentino válido (+54XXXXXXXXXX)',
+  })
   phone: string;
 
   @IsOptional()
@@ -34,36 +32,34 @@ export class CreateAddressDto {
   @Matches(
     /^(\+54|54)?[0-9]{8,12}$/,
     {
-      message: 'El teléfono alternativo debe tener formato argentino válido',
-    },
-  )
+    message: 'El teléfono alternativo debe tener formato argentino válido',
+  },
+)
   alternativePhone?: string;
 
   @IsOptional()
-  @IsEmail({}, { message: 'Debe ser un email válido' })
+  @IsEmail({}, { message: 'El email debe ser válido' })
   email?: string;
 
+  // ✅ INFORMACIÓN DE UBICACIÓN
   @IsString({ message: 'La provincia debe ser texto' })
-  @IsIn(ARGENTINA_PROVINCES, {
-    message: 'Debe ser una provincia válida de Argentina',
-  })
-  province: ArgentinaProvince; // ✅ Cambio de department a province
+  @IsNotEmpty({ message: 'La provincia es obligatoria' })
+  @MaxLength(50)
+  province: string;
 
   @IsString({ message: 'La ciudad debe ser texto' })
+  @IsNotEmpty({ message: 'La ciudad es obligatoria' })
   @Length(2, 50, { message: 'La ciudad debe tener entre 2 y 50 caracteres' })
   city: string;
 
   @IsString({ message: 'El código postal debe ser texto' })
-  @Matches(
-    /^[A-Z]?\d{4}[A-Z]{0,3}$/,
-    {
-      message:
-        'El código postal debe tener formato argentino válido (ej: C1000AAA o 1000)',
-    },
-  )
+  @IsNotEmpty({ message: 'El código postal es obligatorio' })
+  @MaxLength(20)
   postalCode: string;
 
+  // ✅ DIRECCIÓN DETALLADA
   @IsString({ message: 'La dirección debe ser texto' })
+  @IsNotEmpty({ message: 'La dirección es obligatoria' })
   @Length(5, 200, {
     message: 'La dirección debe tener entre 5 y 200 caracteres',
   })
@@ -90,6 +86,7 @@ export class CreateAddressDto {
   })
   landmark?: string;
 
+  // ✅ INSTRUCCIONES DE ENTREGA
   @IsOptional()
   @IsString({ message: 'Las instrucciones deben ser texto' })
   @Length(1, 500, {
@@ -98,9 +95,13 @@ export class CreateAddressDto {
   deliveryInstructions?: string;
 
   @IsOptional()
-  @IsString({ message: 'La preferencia de horario debe ser texto' })
+  @IsString({ message: 'La preferencia de horario de entrega debe ser texto' })
+  @Length(1, 50, {
+    message: 'La preferencia de horario de entrega debe tener entre 1 y 50 caracteres',
+  })
   deliveryTimePreference?: string;
 
+  // ✅ METADATA
   @IsOptional()
   @IsEnum(['Casa', 'Trabajo', 'Otro'], {
     message: 'La etiqueta debe ser: Casa, Trabajo, o Otro',

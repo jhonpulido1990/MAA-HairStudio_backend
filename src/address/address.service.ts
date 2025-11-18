@@ -19,7 +19,6 @@ import {
 import {
   ARGENTINA_PROVINCES,
   MAJOR_CITIES,
-  POSTAL_CODE_PATTERNS,
   ArgentinaProvince,
 } from './constants/argentina-locations';
 
@@ -39,7 +38,7 @@ export class AddressService {
       const addresses = await this.addressRepository.find({
         where: { userId, isActive: true },
         order: {
-          isDefault: 'DESC', // ✅ Dirección por defecto primero
+          isDefault: 'DESC',
           createdAt: 'ASC',
         },
       });
@@ -87,7 +86,7 @@ export class AddressService {
       return {
         success: true,
         message: 'Dirección obtenida exitosamente',
-        action: 'created', // ✅ Reutilizando la interface
+        action: 'created',
         data: this.buildAddressResponse(address),
       };
     } catch (error) {
@@ -115,7 +114,7 @@ export class AddressService {
     try {
       const { isDefault = false, ...addressData } = createAddressDto;
 
-      // Validar datos específicos de Argentina
+      // Validar datos específicos de Argentina (sin código postal)
       await this.validateArgentinaAddress(createAddressDto);
 
       // Si será la dirección por defecto, quitar default de otras direcciones
@@ -185,11 +184,10 @@ export class AddressService {
         throw new NotFoundException('Dirección no encontrada');
       }
 
-      // Validar datos específicos de Argentina si se están actualizando
+      // Validar datos específicos de Argentina si se están actualizando (sin código postal)
       if (
         (updateAddressDto as any).province ||
-        (updateAddressDto as any).city ||
-        (updateAddressDto as any).postalCode
+        (updateAddressDto as any).city
       ) {
         await this.validateArgentinaAddress({
           ...address,
@@ -205,7 +203,7 @@ export class AddressService {
       // Actualizar dirección
       await queryRunner.manager.update(Address, addressId, {
         ...updateAddressDto,
-        validationStatus: 'pending', // ✅ Re-validar si se cambian datos importantes
+        validationStatus: 'pending',
       });
 
       const updatedAddress = await queryRunner.manager.findOne(Address, {
@@ -371,7 +369,7 @@ export class AddressService {
     }
   }
 
-  // ✅ VALIDAR DIRECCIÓN ARGENTINA
+  // ✅ VALIDAR DIRECCIÓN ARGENTINA (SIN VALIDACIÓN DE CÓDIGO POSTAL)
   async validateAddress(
     userId: string,
     addressId: string,
@@ -399,23 +397,6 @@ export class AddressService {
         );
         if (similarProvince) {
           suggestions.province = similarProvince;
-        }
-      }
-
-      // Validar código postal según la provincia/ciudad
-      const postalPattern =
-        POSTAL_CODE_PATTERNS[address.city as keyof typeof POSTAL_CODE_PATTERNS] ||
-        POSTAL_CODE_PATTERNS.general;
-
-      if (!postalPattern.test(address.postalCode)) {
-        isValid = false;
-        validationNotes += 'Código postal no válido para la ubicación. ';
-
-        // Sugerir formato correcto
-        if (address.province === 'Ciudad Autónoma de Buenos Aires') {
-          suggestions.postalCode = 'Formato: C1234ABC o 1234';
-        } else {
-          suggestions.postalCode = 'Formato: A1234ABC o 1234';
         }
       }
 
@@ -479,7 +460,7 @@ export class AddressService {
       return {
         success: true,
         message: 'Dirección por defecto obtenida',
-        action: 'created', // ✅ Reutilizando interface
+        action: 'created',
         data: this.buildAddressResponse(defaultAddress),
       };
     } catch (error) {
@@ -491,7 +472,7 @@ export class AddressService {
     }
   }
 
-  // ✅ MÉTODOS PRIVADOS AUXILIARES
+  // ✅ MÉTODOS PRIVADOS AUXILIARES (SIN VALIDACIÓN DE CÓDIGO POSTAL)
 
   private async validateArgentinaAddress(
     addressDto: CreateAddressDto | any,
@@ -500,17 +481,6 @@ export class AddressService {
     if (!ARGENTINA_PROVINCES.includes(addressDto.province as ArgentinaProvince)) {
       throw new BadRequestException(
         `La provincia "${addressDto.province}" no es válida para Argentina`,
-      );
-    }
-
-    // Validar formato de código postal
-    const postalPattern =
-      POSTAL_CODE_PATTERNS[addressDto.city as keyof typeof POSTAL_CODE_PATTERNS] ||
-      POSTAL_CODE_PATTERNS.general;
-
-    if (!postalPattern.test(addressDto.postalCode)) {
-      throw new BadRequestException(
-        `El código postal "${addressDto.postalCode}" no tiene un formato válido para "${addressDto.city}"`,
       );
     }
 
@@ -529,7 +499,7 @@ export class AddressService {
       alternativePhone: address.alternativePhone,
       email: address.email,
       country: address.country,
-      province: address.province, // ✅ Cambio de department a province
+      province: address.province,
       city: address.city,
       postalCode: address.postalCode,
       streetAddress: address.streetAddress,
