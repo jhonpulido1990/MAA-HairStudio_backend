@@ -15,8 +15,6 @@ import { User, UserRole } from '../users/user.entity';
 import { AddressService } from '../address/address.service';
 import { 
   CreateOrderFromCartDto, 
-  SetShippingCostDto, 
-  ConfirmOrderDto, 
   UpdateOrderStatusDto 
 } from './dto/create-order.dto';
 
@@ -39,7 +37,7 @@ export class OrdersService {
     private dataSource: DataSource,
   ) {}
 
-  // ✅ CREAR ORDEN DESDE CARRITO (ACTUALIZADO)
+  // ✅ CREAR ORDEN DESDE CARRITO (SIMPLIFICADO - SIN ESPERA DE COSTO DE ENVÍO)
   async createOrderFromCart(
     userId: string, 
     createOrderDto: CreateOrderFromCartDto
@@ -116,39 +114,36 @@ export class OrdersService {
         }
       }
 
-      // 4. Calcular totales
+      // 4. Calcular totales (SIN COSTO DE ENVÍO)
       const subtotal = cart.items.reduce((sum, item) => {
         const price = Number(item.product.finalPrice || item.product.price);
         return sum + (price * item.quantity);
       }, 0);
 
-      // Para pickup: sin costo de envío
-      // Para delivery: se establecerá después por admin
-      const shippingCost = deliveryType === DeliveryType.PICKUP ? 0 : 0;
+      // ✅ CAMBIO: Ya no hay costo de envío adicional
+      const shippingCost = 0;
       const tax = subtotal * 0.21; // IVA Argentina 21%
-      const total = subtotal + shippingCost + tax;
+      const total = subtotal + tax;
 
-      // 5. Determinar estado inicial
-      const initialStatus = deliveryType === DeliveryType.DELIVERY 
-        ? OrderStatus.AWAITING_SHIPPING_COST 
-        : OrderStatus.PENDING;
+      // ✅ CAMBIO: Estado inicial siempre es PENDING (sin espera de costo de envío)
+      const initialStatus = OrderStatus.PENDING;
 
-      // 6. Generar número de orden único
+      // 5. Generar número de orden único
       const orderNumber = await this.generateOrderNumber();
 
-      // 7. Crear orden
+      // 6. Crear orden
       const orderData: Partial<Order> = {
         orderNumber,
         user: { id: userId } as User,
         deliveryType,
         subtotal,
-        shippingCost,
+        shippingCost: 0, // ✅ Siempre 0
         tax,
         total,
         status: initialStatus,
         paymentStatus: PaymentStatus.PENDING,
         notes,
-        isShippingCostSet: deliveryType === DeliveryType.PICKUP,
+        isShippingCostSet: true, // ✅ Siempre true porque no hay costo adicional
       };
 
       // Add shippingSnapshot only if it's not null
@@ -164,7 +159,7 @@ export class OrdersService {
       const order = queryRunner.manager.create(Order, orderData);
       const savedOrder = await queryRunner.manager.save(order);
 
-      // 8. Crear items de la orden
+      // 7. Crear items de la orden
       const orderItems: Partial<OrderItem>[] = [];
       
       for (const cartItem of cart.items) {
@@ -209,18 +204,19 @@ export class OrdersService {
 
       await queryRunner.manager.save(OrderItem, orderItems);
 
-      // 9. Limpiar carrito
+      // 8. Limpiar carrito
       await queryRunner.manager.delete('cart_items', { cart: { id: cart.id } });
 
       this.logger.log(
         `Orden ${orderNumber} creada exitosamente. ` +
         `Tipo: ${deliveryType}, Estado: ${initialStatus}, ` +
-        `Items: ${orderItems.length}, Total: $${total}`
+        `Items: ${orderItems.length}, Total: $${total}` +
+        `${deliveryType === DeliveryType.DELIVERY ? ' - Entrega coordinada con el cliente' : ''}`
       );
 
       await queryRunner.commitTransaction();
 
-      // 10. Obtener orden completa
+      // 9. Obtener orden completa
       const orderWithRelations = await this.orderRepository.findOne({
         where: { id: savedOrder.id },
         relations: ['user', 'items', 'items.product', 'shippingAddress'],
@@ -235,12 +231,13 @@ export class OrdersService {
         delete (orderWithRelations.user as any).password_hash;
       }
 
-      // 11. Enviar notificaciones según el tipo
+      // 10. Enviar notificaciones
       try {
+        await this.notifyOrderCreated(orderWithRelations);
+        
+        // ✅ CAMBIO: Notificar sobre coordinación de entrega
         if (deliveryType === DeliveryType.DELIVERY) {
-          await this.notifyAdminsForShippingCost(orderWithRelations);
-        } else {
-          await this.notifyOrderCreated(orderWithRelations);
+          await this.notifyDeliveryCoordination(orderWithRelations);
         }
       } catch (notificationError) {
         this.logger.error(
@@ -256,9 +253,11 @@ export class OrdersService {
         data: orderWithRelations,
         meta: {
           deliveryType,
-          requiresShippingCost: orderWithRelations.requiresShippingCost,
-          isReadyForPayment: orderWithRelations.isReadyForPayment,
-          statusDescription: orderWithRelations.statusDescription,
+          requiresShippingCost: false, // ✅ Siempre false
+          isReadyForPayment: true, // ✅ Siempre listo para pagar
+          statusDescription: deliveryType === DeliveryType.DELIVERY 
+            ? 'Orden creada. El envío será coordinado directamente con el entregador.'
+            : 'Orden creada. Lista para retiro en tienda.',
         }
       };
 
@@ -281,206 +280,55 @@ export class OrdersService {
     }
   }
 
-  // ✅ ESTABLECER COSTO DE ENVÍO (ADMIN)
-  async setShippingCost(
-    orderId: string, 
-    adminId: string, 
-    setShippingCostDto: SetShippingCostDto
-  ) {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+  // ✅ ELIMINAR: Ya no se necesita setShippingCost
+  // ✅ ELIMINAR: Ya no se necesita confirmOrder
+  // ✅ ELIMINAR: Ya no se necesita getOrdersAwaitingShippingCost
 
-    try {
-      const { shippingCost, shippingNotes } = setShippingCostDto;
-
-      // Verificar que la orden existe y está esperando costo de envío
-      const order = await queryRunner.manager.findOne(Order, {
-        where: { id: orderId },
-        relations: ['user'],
-      });
-
-      if (!order) {
-        throw new NotFoundException('Orden no encontrada');
-      }
-
-      if (order.status !== OrderStatus.AWAITING_SHIPPING_COST) {
-        throw new BadRequestException(
-          `No se puede establecer costo de envío. Estado actual: ${order.status}`
-        );
-      }
-
-      if (order.deliveryType !== DeliveryType.DELIVERY) {
-        throw new BadRequestException('Solo se puede establecer costo para órdenes de delivery');
-      }
-
-      // Actualizar orden con costo de envío
-      const newTotal = Number(order.subtotal) + Number(shippingCost) + Number(order.tax);
-
-      await queryRunner.manager.update(Order, orderId, {
-        shippingCost: Number(shippingCost),
-        total: newTotal,
-        isShippingCostSet: true,
-        status: OrderStatus.SHIPPING_COST_SET,
-        shippingCostSetBy: adminId,
-        shippingCostSetAt: new Date(),
-        shippingNotes,
-      });
-
-      this.logger.log(
-        `Costo de envío $${shippingCost} establecido para orden ${order.orderNumber} por admin ${adminId}`
-      );
-
-      await queryRunner.commitTransaction();
-
-      // Obtener orden actualizada
-      const updatedOrder = await this.findOne(orderId);
-
-      // Notificar al cliente
-      await this.notifyCustomerShippingCost(updatedOrder);
-
-      return {
-        success: true,
-        message: 'Costo de envío establecido exitosamente',
-        data: updatedOrder,
-      };
-
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      this.logger.error(`Error al establecer costo de envío para orden ${orderId}:`, error);
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
-  }
-
-  // ✅ CONFIRMAR ORDEN (CLIENTE)
-  async confirmOrder(
-    orderId: string, 
-    userId: string, 
-    confirmOrderDto: ConfirmOrderDto
-  ) {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      // Verificar que la orden pertenece al usuario
-      const order = await queryRunner.manager.findOne(Order, {
-        where: { id: orderId, user: { id: userId } },
-      });
-
-      if (!order) {
-        throw new NotFoundException('Orden no encontrada');
-      }
-
-      if (order.status !== OrderStatus.SHIPPING_COST_SET) {
-        throw new BadRequestException(
-          `No se puede confirmar orden. Estado actual: ${order.status}`
-        );
-      }
-
-      // Confirmar orden
-      await queryRunner.manager.update(Order, orderId, {
-        status: OrderStatus.CONFIRMED,
-        customerConfirmedAt: new Date(),
-      });
-
-      this.logger.log(`Orden ${order.orderNumber} confirmada por cliente ${userId}`);
-
-      await queryRunner.commitTransaction();
-
-      // Obtener orden actualizada
-      const confirmedOrder = await this.findOne(orderId);
-
-      // Notificar confirmación
-      await this.notifyOrderConfirmed(confirmedOrder);
-
-      return {
-        success: true,
-        message: 'Orden confirmada exitosamente',
-        data: confirmedOrder,
-      };
-
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      this.logger.error(`Error al confirmar orden ${orderId} por usuario ${userId}:`, error);
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
-  }
-
-  // ✅ OBTENER ÓRDENES PENDIENTES DE COSTO DE ENVÍO (ADMIN)
-  async getOrdersAwaitingShippingCost() {
-    try {
-      const orders = await this.orderRepository.find({
-        where: { 
-          status: OrderStatus.AWAITING_SHIPPING_COST,
-          deliveryType: DeliveryType.DELIVERY 
-        },
-        relations: ['user', 'items', 'items.product'],
-        order: { createdAt: 'ASC' }, // Más antiguas primero
-      });
-
-      // Ocultar passwords
-      orders.forEach(order => {
-        if (order.user?.password_hash) {
-          delete (order.user as any).password_hash;
-        }
-      });
-
-      return {
-        success: true,
-        message: 'Órdenes pendientes de costo de envío obtenidas',
-        data: orders,
-        meta: {
-          total: orders.length,
-          pendingSince: orders.length > 0 ? orders[0].createdAt : null,
-        }
-      };
-    } catch (error) {
-      this.logger.error('Error al obtener órdenes pendientes de costo de envío:', error);
-      throw new BadRequestException('Error al obtener órdenes pendientes');
-    }
-  }
-
-  // ✅ MÉTODOS DE NOTIFICACIÓN (PLACEHOLDER - implementaremos después)
-  private async notifyAdminsForShippingCost(order: Order) {
-    this.logger.log(`📧 Notificando admins sobre nueva orden de delivery: ${order.orderNumber}`);
-    // TODO: Implementar envío de email a admins
-    console.log('📧 EMAIL TO ADMINS:', {
-      subject: `Nueva orden requiere cotización de envío - ${order.orderNumber}`,
-      orderNumber: order.orderNumber,
-      customerName: order.user.name,
-      customerEmail: order.user.email,
-      shippingAddress: order.shippingSnapshot,
-      items: order.items.length,
-      subtotal: order.subtotal,
-    });
-  }
-
-  private async notifyCustomerShippingCost(order: Order) {
-    this.logger.log(`📧 Notificando cliente sobre costo de envío: ${order.orderNumber}`);
-    // TODO: Implementar envío de email a cliente
-    console.log('📧 EMAIL TO CUSTOMER:', {
-      subject: `Costo de envío establecido para tu orden ${order.orderNumber}`,
-      customerEmail: order.user.email,
-      orderNumber: order.orderNumber,
-      shippingCost: order.shippingCost,
-      total: order.total,
-      confirmUrl: `${process.env.FRONTEND_URL}/orders/${order.id}/confirm`,
-    });
-  }
-
+  // ✅ MÉTODOS DE NOTIFICACIÓN (ACTUALIZADOS)
   private async notifyOrderCreated(order: Order) {
-    this.logger.log(`📧 Notificando creación de orden pickup: ${order.orderNumber}`);
-    // TODO: Implementar notificación de orden creada
+    this.logger.log(`📧 Notificando creación de orden: ${order.orderNumber}`);
+    
+    console.log('📧 EMAIL TO CUSTOMER:', {
+      subject: `Orden ${order.orderNumber} creada exitosamente`,
+      customerEmail: order.user.email,
+      orderNumber: order.orderNumber,
+      deliveryType: order.deliveryType,
+      total: order.total,
+      items: order.items.length,
+      message: order.deliveryType === DeliveryType.DELIVERY 
+        ? 'El envío será coordinado directamente con nuestro entregador. Te contactaremos pronto.'
+        : 'Tu orden está lista para retiro en tienda.',
+    });
   }
 
-  private async notifyOrderConfirmed(order: Order) {
-    this.logger.log(`📧 Notificando confirmación de orden: ${order.orderNumber}`);
-    // TODO: Implementar notificación de orden confirmada
+  private async notifyDeliveryCoordination(order: Order) {
+    this.logger.log(`📧 Notificando coordinación de entrega: ${order.orderNumber}`);
+    
+    console.log('📧 DELIVERY COORDINATION:', {
+      subject: `Coordinación de entrega - Orden ${order.orderNumber}`,
+      customerEmail: order.user.email,
+      customerPhone: order.shippingSnapshot?.phone,
+      orderNumber: order.orderNumber,
+      shippingAddress: order.shippingSnapshot,
+      message: 'Nuestro entregador te contactará para coordinar la entrega. ' +
+               'El pago y envío se coordinan directamente con el entregador.',
+    });
+
+    // Notificar también a admins/entregador
+    console.log('📧 NOTIFICATION TO DELIVERY TEAM:', {
+      subject: `Nueva orden para entrega - ${order.orderNumber}`,
+      orderNumber: order.orderNumber,
+      customerName: order.shippingSnapshot?.recipientName,
+      customerPhone: order.shippingSnapshot?.phone,
+      address: order.shippingSnapshot?.fullAddress,
+      items: order.items.map(item => ({
+        product: item.productName,
+        quantity: item.quantity,
+      })),
+      total: order.total,
+      notes: order.notes,
+      deliveryInstructions: order.shippingSnapshot?.deliveryInstructions,
+    });
   }
 
   private async getAdminEmails(): Promise<string[]> {
@@ -492,7 +340,7 @@ export class OrdersService {
     return admins.map(admin => admin.email);
   }
 
-  // ... métodos existentes (findOne, findUserOrders, etc.)
+  // ✅ MÉTODOS DE CONSULTA (SIN CAMBIOS)
   async findOne(id: string, userId?: string) {
     const order = await this.orderRepository.findOne({
       where: { id },
@@ -508,7 +356,10 @@ export class OrdersService {
       throw new ForbiddenException('No tienes acceso a esta orden');
     }
 
-    order.user && delete (order.user as any).password_hash;
+    if (order.user?.password_hash) {
+      delete (order.user as any).password_hash;
+    }
+    
     return order;
   }
 
@@ -539,8 +390,6 @@ export class OrdersService {
       return `MAA-${timestamp}`;
     }
   }
-
-  // ✅ AGREGAR MÉTODOS FALTANTES QUE USA EL CONTROLLER
 
   async findUserOrders(userId: string, page: number = 1, limit: number = 10) {
     try {
@@ -651,7 +500,6 @@ export class OrdersService {
       const [
         totalOrders,
         pendingOrders,
-        awaitingShippingCost,
         confirmedOrders,
         paidOrders,
         deliveredOrders,
@@ -661,7 +509,6 @@ export class OrdersService {
       ] = await Promise.all([
         this.orderRepository.count(),
         this.orderRepository.count({ where: { status: OrderStatus.PENDING } }),
-        this.orderRepository.count({ where: { status: OrderStatus.AWAITING_SHIPPING_COST } }),
         this.orderRepository.count({ where: { status: OrderStatus.CONFIRMED } }),
         this.orderRepository.count({ where: { paymentStatus: PaymentStatus.APPROVED } }),
         this.orderRepository.count({ where: { status: OrderStatus.DELIVERED } }),
@@ -695,7 +542,6 @@ export class OrdersService {
           totalOrders,
           ordersByStatus: {
             pending: pendingOrders,
-            awaitingShippingCost,
             confirmed: confirmedOrders,
             paid: paidOrders,
             delivered: deliveredOrders,
@@ -783,6 +629,4 @@ export class OrdersService {
       throw error;
     }
   }
-
-  // ... resto de métodos existentes (createOrderFromCart, setShippingCost, etc.)
 }
