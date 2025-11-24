@@ -5,15 +5,14 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { User, UserRole } from './user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UpdateUserDto } from 'src/auth/dto/update_user';
-import * as crypto from 'crypto';
 import { MailerService } from '@nestjs-modules/mailer';
 import * as bcrypt from 'bcrypt';
-// Remove the shippo Order import since we're using our own Order entity
 
 export interface InternalCreateUserDto {
   email: string;
@@ -23,11 +22,339 @@ export interface InternalCreateUserDto {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly mailerService: MailerService,
   ) {}
+
+  // ✅ NUEVO: Generar código de 6 dígitos
+  private generateSixDigitCode(): string {
+    // Genera un número aleatorio entre 100000 y 999999
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  // ✅ MODIFICADO: Enviar código de 6 dígitos en lugar de token
+  async sendPasswordResetEmail(email: string): Promise<{ 
+    message: string;
+    expiresInMinutes: number;
+  }> {
+    const user = await this.userRepository.findOneBy({ email });
+    
+    if (!user) {
+      // ✅ SEGURIDAD: No revelar si el email existe o no
+      this.logger.warn(`Intento de recuperación de contraseña para email no registrado: ${email}`);
+      return { 
+        message: 'Si el correo está registrado, recibirás un código de verificación.',
+        expiresInMinutes: 120 
+      };
+    }
+
+    // ✅ Generar código de 6 dígitos
+    const resetCode = this.generateSixDigitCode();
+    
+    // ✅ CAMBIO: Tiempo de expiración de 2 horas (120 minutos)
+    const expirationTime = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 horas
+
+    // ✅ Guardar código y tiempo de expiración
+    user.resetPasswordCode = resetCode;
+    user.resetPasswordExpires = expirationTime;
+
+    try {
+      await this.userRepository.save(user);
+
+      // ✅ Enviar email con código
+      await this.mailerService.sendMail({
+        to: user.email,
+        subject: 'Código de recuperación de contraseña - MAA Hair Studio',
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+              }
+              .container {
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #f9f9f9;
+                border-radius: 10px;
+              }
+              .header {
+                text-align: center;
+                padding: 20px 0;
+                background-color: #4a5568;
+                color: white;
+                border-radius: 10px 10px 0 0;
+              }
+              .code-box {
+                background-color: #ffffff;
+                border: 2px dashed #4a5568;
+                border-radius: 8px;
+                padding: 30px;
+                text-align: center;
+                margin: 30px 0;
+              }
+              .code {
+                font-size: 48px;
+                font-weight: bold;
+                letter-spacing: 10px;
+                color: #2d3748;
+                font-family: 'Courier New', monospace;
+              }
+              .warning {
+                background-color: #fff5f5;
+                border-left: 4px solid #fc8181;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 4px;
+              }
+              .info {
+                background-color: #ebf8ff;
+                border-left: 4px solid #4299e1;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 4px;
+              }
+              .footer {
+                text-align: center;
+                color: #718096;
+                font-size: 12px;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #e2e8f0;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>🔐 Recuperación de Contraseña</h1>
+              </div>
+              
+              <div style="padding: 20px; background-color: white;">
+                <p>Hola <strong>${user.name || 'Usuario'}</strong>,</p>
+                
+                <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta en <strong>MAA Hair Studio</strong>.</p>
+                
+                <p>Tu código de verificación es:</p>
+                
+                <div class="code-box">
+                  <div class="code">${resetCode}</div>
+                  <p style="color: #718096; margin-top: 10px;">Código de verificación</p>
+                </div>
+                
+                <div class="info">
+                  <strong>⏰ Tiempo de validez:</strong>
+                  <p style="margin: 5px 0 0 0;">Este código es válido por <strong>2 horas</strong> desde el momento de su generación.</p>
+                  <p style="margin: 5px 0 0 0;">Expira el: <strong>${expirationTime.toLocaleString('es-AR', { 
+                    dateStyle: 'full', 
+                    timeStyle: 'short' 
+                  })}</strong></p>
+                </div>
+                
+                <div class="warning">
+                  <strong>⚠️ Importante:</strong>
+                  <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+                    <li>No compartas este código con nadie</li>
+                    <li>Nuestro equipo nunca te pedirá este código</li>
+                    <li>Si no solicitaste este cambio, ignora este correo</li>
+                  </ul>
+                </div>
+                
+                <p><strong>¿Cómo usar el código?</strong></p>
+                <ol>
+                  <li>Ve a la página de recuperación de contraseña</li>
+                  <li>Ingresa este código de 6 dígitos</li>
+                  <li>Crea tu nueva contraseña</li>
+                </ol>
+                
+                <p>Si tienes algún problema, contáctanos respondiendo a este correo.</p>
+                
+                <p>Saludos,<br>
+                <strong>Equipo de MAA Hair Studio</strong></p>
+              </div>
+              
+              <div class="footer">
+                <p>Este es un correo automático, por favor no respondas directamente.</p>
+                <p>&copy; ${new Date().getFullYear()} MAA Hair Studio. Todos los derechos reservados.</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `
+Hola ${user.name || 'Usuario'},
+
+Recibimos una solicitud para restablecer la contraseña de tu cuenta en MAA Hair Studio.
+
+Tu código de verificación es: ${resetCode}
+
+Este código es válido por 2 horas.
+Expira el: ${expirationTime.toLocaleString('es-AR')}
+
+IMPORTANTE:
+- No compartas este código con nadie
+- Nuestro equipo nunca te pedirá este código
+- Si no solicitaste este cambio, ignora este correo
+
+¿Cómo usar el código?
+1. Ve a la página de recuperación de contraseña
+2. Ingresa este código de 6 dígitos
+3. Crea tu nueva contraseña
+
+Saludos,
+Equipo de MAA Hair Studio
+        `,
+      });
+
+      this.logger.log(`Código de recuperación enviado a: ${email}`);
+      this.logger.log(`Código expira en: ${expirationTime.toISOString()}`);
+
+      return { 
+        message: 'Código de verificación enviado. Revisa tu correo electrónico.',
+        expiresInMinutes: 120 
+      };
+
+    } catch (error) {
+      this.logger.error(`Error al enviar código de recuperación a ${email}:`, error);
+      throw new InternalServerErrorException(
+        'No se pudo enviar el código de recuperación. Por favor, intenta nuevamente.'
+      );
+    }
+  }
+
+  // ✅ MODIFICADO: Validar código de 6 dígitos en lugar de token
+  async resetPassword(
+    code: string, // ✅ CAMBIO: Ahora recibe código en lugar de token
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    // ✅ VALIDACIÓN: Verificar formato del código
+    if (!/^\d{6}$/.test(code)) {
+      throw new BadRequestException('El código debe ser de 6 dígitos numéricos.');
+    }
+
+    // ✅ Buscar usuario por código
+    const user = await this.userRepository.findOneBy({
+      resetPasswordCode: code,
+    });
+
+    // ✅ VALIDACIONES: Código inválido o expirado
+    if (!user) {
+      this.logger.warn(`Intento de reseteo con código inválido: ${code}`);
+      throw new BadRequestException('Código inválido o ya utilizado.');
+    }
+
+    if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+      this.logger.warn(`Intento de reseteo con código expirado para usuario: ${user.email}`);
+      throw new BadRequestException('El código ha expirado. Solicita uno nuevo.');
+    }
+
+    // ✅ VALIDACIÓN: Contraseña segura
+    if (newPassword.length < 8) {
+      throw new BadRequestException('La contraseña debe tener al menos 8 caracteres.');
+    }
+
+    try {
+      // ✅ Hashear nueva contraseña
+      user.password_hash = await bcrypt.hash(newPassword, 10);
+      
+      // ✅ IMPORTANTE: Limpiar código y expiración después de usarlo
+      user.resetPasswordCode = undefined;
+      user.resetPasswordExpires = undefined;
+
+      await this.userRepository.save(user);
+
+      this.logger.log(`Contraseña actualizada exitosamente para: ${user.email}`);
+
+      // ✅ Opcional: Enviar email de confirmación
+      try {
+        await this.mailerService.sendMail({
+          to: user.email,
+          subject: 'Contraseña actualizada exitosamente',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>✅ Contraseña Actualizada</h2>
+              <p>Hola <strong>${user.name || 'Usuario'}</strong>,</p>
+              <p>Tu contraseña ha sido actualizada exitosamente.</p>
+              <p>Si no realizaste este cambio, contacta inmediatamente con nuestro equipo de soporte.</p>
+              <p>Saludos,<br><strong>Equipo de MAA Hair Studio</strong></p>
+            </div>
+          `,
+          text: `
+Hola ${user.name || 'Usuario'},
+
+Tu contraseña ha sido actualizada exitosamente.
+
+Si no realizaste este cambio, contacta inmediatamente con nuestro equipo de soporte.
+
+Saludos,
+Equipo de MAA Hair Studio
+          `,
+        });
+      } catch (emailError) {
+        this.logger.error('Error al enviar email de confirmación:', emailError);
+        // No fallar el reseteo por error de email
+      }
+
+      return { message: 'Contraseña actualizada correctamente.' };
+
+    } catch (error) {
+      this.logger.error(`Error al actualizar contraseña:`, error);
+      throw new InternalServerErrorException(
+        'No se pudo actualizar la contraseña. Por favor, intenta nuevamente.'
+      );
+    }
+  }
+
+  // ✅ NUEVO: Verificar si un código es válido (opcional)
+  async verifyResetCode(code: string): Promise<{ 
+    valid: boolean; 
+    email?: string;
+    expiresAt?: Date;
+  }> {
+    if (!/^\d{6}$/.test(code)) {
+      return { valid: false };
+    }
+
+    const user = await this.userRepository.findOneBy({
+      resetPasswordCode: code,
+    });
+
+    if (!user || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+      return { valid: false };
+    }
+
+    return { 
+      valid: true, 
+      email: user.email,
+      expiresAt: user.resetPasswordExpires
+    };
+  }
+
+  // ✅ NUEVO: Limpiar códigos expirados (tarea de mantenimiento)
+  async cleanExpiredResetCodes(): Promise<{ cleaned: number }> {
+    const result = await this.userRepository
+      .createQueryBuilder()
+      .update(User)
+      .set({ 
+        resetPasswordCode: null, 
+        resetPasswordExpires: null 
+      })
+      .where('resetPasswordExpires < :now', { now: new Date() })
+      .andWhere('resetPasswordCode IS NOT NULL')
+      .execute();
+
+    this.logger.log(`Códigos expirados limpiados: ${result.affected}`);
+
+    return { cleaned: result.affected || 0 };
+  }
 
   async create(userData: InternalCreateUserDto): Promise<User> {
     const { email } = userData;
@@ -54,7 +381,6 @@ export class UsersService {
     return this.userRepository.findOneBy({ email });
   }
 
-  // ✅ SIMPLIFICADO: Ya no necesita exclusión manual
   async findOneById(
     requestingUser: User,
     userId: string,
@@ -68,7 +394,6 @@ export class UsersService {
 
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      // ✅ Ya no necesitamos select específico, @Exclude() maneja la seguridad
     });
 
     if (!user) {
@@ -85,7 +410,6 @@ export class UsersService {
     return user;
   }
 
-  // ✅ SIMPLIFICADO: Ya no necesita exclusión manual
   async findAll(
     page: number = 1,
     limit: number = 10,
@@ -97,7 +421,6 @@ export class UsersService {
     totalPages: number;
   }> {
     const [users, total] = await this.userRepository.findAndCount({
-      // ✅ Eliminar select específico, @Exclude() maneja la seguridad
       skip: (page - 1) * limit,
       take: limit,
       order: { createdAt: 'DESC' },
@@ -114,37 +437,25 @@ export class UsersService {
     };
   }
 
-  // ✅ CORREGIDO: Administrador puede cambiar roles de otros usuarios
   async updateUserRole(
-    requestingUser: User, // ✅ AGREGAR: Usuario que hace la request
-    identifier: string,  // ✅ CAMBIAR: Puede ser ID o email
+    requestingUser: User,
+    identifier: string,
     newRole: UserRole,
   ): Promise<User> {
-    console.log('🔄 Cambio de rol solicitado por:', requestingUser.email);
-    console.log('👤 Usuario objetivo:', identifier);
-    console.log('🎭 Nuevo rol:', newRole);
-
-    // ✅ VALIDACIÓN: Solo administradores pueden cambiar roles
     if (requestingUser.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Solo los administradores pueden cambiar roles de usuario.');
     }
 
-    // ✅ VALIDACIÓN: Verificar que el rol sea válido
     if (!Object.values(UserRole).includes(newRole)) {
       throw new BadRequestException(`Rol no válido. Roles disponibles: ${Object.values(UserRole).join(', ')}`);
     }
 
-    // ✅ BUSCAR USUARIO: Por ID o por email
     let targetUser: User | null = null;
-
-    // Verificar si el identifier es un UUID válido
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     
     if (uuidRegex.test(identifier)) {
-      // Buscar por ID
       targetUser = await this.userRepository.findOneBy({ id: identifier });
     } else {
-      // Buscar por email
       targetUser = await this.userRepository.findOneBy({ email: identifier });
     }
 
@@ -152,38 +463,24 @@ export class UsersService {
       throw new NotFoundException(`Usuario no encontrado con el identificador: ${identifier}`);
     }
 
-    // ✅ VALIDACIÓN: Evitar que el admin se quite sus propios permisos de admin
     if (targetUser.id === requestingUser.id && newRole !== UserRole.ADMIN) {
       throw new BadRequestException('No puedes quitar tus propios permisos de administrador.');
     }
 
-    // ✅ PREVENCIÓN: Evitar cambios innecesarios
     if (targetUser.role === newRole) {
       throw new BadRequestException(`El usuario ya tiene el rol: ${newRole}`);
     }
 
-    // ✅ ACTUALIZAR ROL
-    const previousRole = targetUser.role;
     targetUser.role = newRole;
     
     try {
       await this.userRepository.save(targetUser);
-      
-      console.log(`✅ Rol actualizado exitosamente:
-        - Usuario: ${targetUser.email}
-        - Rol anterior: ${previousRole}
-        - Rol nuevo: ${newRole}
-        - Cambiado por: ${requestingUser.email}`);
-
-      // ✅ Retornar user completo, @Exclude() oculta datos sensibles automáticamente
       return targetUser;
     } catch (error) {
-      console.error('❌ Error al actualizar rol:', error);
       throw new InternalServerErrorException('No se pudo actualizar el rol del usuario.');
     }
   }
 
-  // ✅ SIMPLIFICADO: Ya no necesita exclusión manual
   async updateUser(
     requestingUser: User,
     userId: string,
@@ -205,8 +502,6 @@ export class UsersService {
     if (updateUserDto.email) user.email = updateUserDto.email;
 
     await this.userRepository.save(user);
-
-    // ✅ Retornar user completo, @Exclude() oculta datos sensibles automáticamente
     return user;
   }
 
@@ -238,52 +533,6 @@ export class UsersService {
     return { message: 'Tu cuenta y todos tus datos han sido eliminados.' };
   }
 
-  async sendPasswordResetEmail(email: string): Promise<{ message: string }> {
-    const user = await this.userRepository.findOneBy({ email });
-    if (!user) throw new NotFoundException('Usuario no encontrado.');
-
-    const token = crypto.randomBytes(32).toString('hex');
-    user.resetPasswordToken = token;
-    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
-
-    await this.userRepository.save(user);
-
-    const resetUrl = `https://tu-frontend.com/reset-password?token=${token}`;
-    await this.mailerService.sendMail({
-      to: user.email,
-      subject: 'Recupera tu contraseña',
-      text: `Haz clic en el siguiente enlace para restablecer tu contraseña: ${resetUrl}`,
-      // Puedes agregar html si lo deseas:
-      // html: `<a href="${resetUrl}">Restablecer contraseña</a>`
-    });
-
-    return { message: 'Correo de recuperación enviado.' };
-  }
-
-  async resetPassword(
-    token: string,
-    newPassword: string,
-  ): Promise<{ message: string }> {
-    const user = await this.userRepository.findOneBy({
-      resetPasswordToken: token,
-    });
-    if (
-      !user ||
-      !user.resetPasswordExpires ||
-      user.resetPasswordExpires < new Date()
-    ) {
-      throw new BadRequestException('Token inválido o expirado.');
-    }
-
-    user.password_hash = await bcrypt.hash(newPassword, 10);
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-
-    await this.userRepository.save(user);
-    return { message: 'Contraseña actualizada correctamente.' };
-  }
-
-  // Nuevos métodos sugeridos
   async getUserWithOrders(
     requestingUser: User,
     userId: string,
@@ -299,7 +548,6 @@ export class UsersService {
       totalPages: number;
     };
   }> {
-    // Verificar permisos
     if (requestingUser.id !== userId && requestingUser.role !== UserRole.ADMIN) {
       throw new ForbiddenException('No tienes permisos para ver este usuario.');
     }
@@ -312,7 +560,6 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado.');
     }
 
-    // Obtener órdenes paginadas
     const orderRepository = this.userRepository.manager.getRepository('Order');
     const [orders, total] = await orderRepository.findAndCount({
       where: { user: { id: userId } },
@@ -336,7 +583,6 @@ export class UsersService {
     };
   }
 
-  // Estadísticas de usuario
   async getUserStats(userId: string) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -354,7 +600,6 @@ export class UsersService {
     };
   }
 
-  // ✅ CORREGIDO: Estadísticas detalladas del usuario
   async getUserStatistics(
     requestingUser: User,
     userId: string
@@ -370,7 +615,6 @@ export class UsersService {
       favoriteProducts: Array<{ productName: string; quantity: number; times: number }>;
     };
   }> {
-    // Verificar permisos
     if (requestingUser.id !== userId && requestingUser.role !== UserRole.ADMIN) {
       throw new ForbiddenException('No tienes permisos para ver estas estadísticas.');
     }
@@ -385,10 +629,8 @@ export class UsersService {
     }
 
     try {
-      // ✅ CORRECCIÓN: Usar 'orders' consistentemente
       const orderRepository = this.userRepository.manager.getRepository('orders');
 
-      // Total de órdenes y gasto
       const orderStats = await orderRepository
         .createQueryBuilder('order')
         .select([
@@ -400,7 +642,6 @@ export class UsersService {
         .andWhere('order.paymentStatus = :status', { status: 'approved' })
         .getRawOne();
 
-      // ✅ CORRECCIÓN: Consulta más simple para última orden
       const lastOrder = await orderRepository
         .createQueryBuilder('order')
         .select('order.createdAt', 'createdAt')
@@ -423,9 +664,6 @@ export class UsersService {
       };
 
     } catch (error) {
-      console.error('❌ Error en getUserStatistics:', error);
-      
-      // ✅ FALLBACK: Devolver estadísticas vacías si hay error
       return {
         user,
         statistics: {
@@ -441,7 +679,6 @@ export class UsersService {
     }
   }
 
-  // ✅ NUEVO: Resumen rápido del usuario
   async getUserSummary(userId: string): Promise<{
     id: string;
     name: string;
@@ -461,11 +698,9 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado.');
     }
 
-    // ✅ CORRECCIÓN: Usar 'orders' (minúscula) que es el nombre correcto de la tabla
     const orderRepository = this.userRepository.manager.getRepository('orders');
     
     try {
-      // ✅ CORRECCIÓN: Consulta más simple y directa
       const stats = await orderRepository
         .createQueryBuilder('order')
         .select([
@@ -476,7 +711,6 @@ export class UsersService {
         .andWhere('order.paymentStatus = :status', { status: 'approved' })
         .getRawOne();
 
-      // ✅ CORRECCIÓN: Consulta simplificada para última orden
       const lastOrderResult = await orderRepository
         .createQueryBuilder('order')
         .select('order.createdAt', 'createdAt')
@@ -497,9 +731,6 @@ export class UsersService {
       };
 
     } catch (error) {
-      console.error('❌ Error en getUserSummary:', error);
-      
-      // ✅ FALLBACK: Si hay error con las órdenes, devolver datos básicos del usuario
       return {
         id: user.id,
         name: user.name || '',
@@ -513,7 +744,6 @@ export class UsersService {
     }
   }
 
-  // En users.service.ts, agregar este método:
   async updatePassword(userId: string, hashedPassword: string): Promise<void> {
     const user = await this.userRepository.findOneBy({ id: userId });
     if (!user) {

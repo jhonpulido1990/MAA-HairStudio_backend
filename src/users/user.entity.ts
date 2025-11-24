@@ -56,9 +56,13 @@ export class User {
   @Exclude({ toPlainOnly: true }) // ✅ OCULTAR token de reset
   resetPasswordToken?: string;
 
+  // ✅ CAMBIO: Ahora es un código de 6 dígitos en lugar de token largo
+  @Column({ type: 'varchar', nullable: true, length: 6 })
+  resetPasswordCode?: string | null; // Código de 6 dígitos
+
   @Column({ nullable: true, type: 'timestamptz' })
   @Exclude({ toPlainOnly: true }) // ✅ OCULTAR fecha de expiración
-  resetPasswordExpires?: Date;
+  resetPasswordExpires?: Date | null;
 
   @OneToMany(() => Wishlist, (wishlist) => wishlist.user)
   wishlists: Wishlist[];

@@ -12,14 +12,13 @@ import {
   Req,
   ParseUUIDPipe,
   BadRequestException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
 import { User, UserRole } from './user.entity';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdateUserDto } from 'src/auth/dto/update_user';
-import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ResetPasswordDto, VerifyResetCodeDto } from './dto/reset-password.dto';
 import { RolesGuard } from 'src/auth/roles/roles.guard';
 import { Roles } from 'src/auth/roles/roles.decorator';
 import * as bcrypt from 'bcrypt';
@@ -28,15 +27,34 @@ import * as bcrypt from 'bcrypt';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  // ✅ MODIFICADO: Enviar código de 6 dígitos
   @Post('forgot-password')
   async forgotPassword(@Body('email') email: string) {
+    if (!email) {
+      throw new BadRequestException('El correo electrónico es obligatorio');
+    }
     return this.usersService.sendPasswordResetEmail(email);
   }
 
+  // ✅ NUEVO: Verificar si el código es válido (opcional)
+  @Post('verify-reset-code')
+  async verifyResetCode(@Body() verifyDto: VerifyResetCodeDto) {
+    return this.usersService.verifyResetCode(verifyDto.code);
+  }
+
+  // ✅ MODIFICADO: Recibir código en lugar de token
   @Post('reset-password')
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-    const { token, newPassword } = resetPasswordDto;
-    return this.usersService.resetPassword(token, newPassword);
+    const { code, newPassword } = resetPasswordDto;
+    return this.usersService.resetPassword(code, newPassword);
+  }
+
+  // ✅ NUEVO: Limpiar códigos expirados (solo admin)
+  @Post('admin/clean-expired-codes')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
+  async cleanExpiredCodes() {
+    return this.usersService.cleanExpiredResetCodes();
   }
 
   // ✅ NUEVO: Mi perfil completo (usuario actual)

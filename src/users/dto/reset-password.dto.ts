@@ -1,15 +1,25 @@
 import { IsNotEmpty, IsString, Matches, MinLength } from 'class-validator';
 
 export class ResetPasswordDto {
-  @IsString()
-  token: string;
-
-  @IsString({ message: 'La contraseña debe ser una cadena de texto.' })
-  @IsNotEmpty({ message: 'La contraseña no debe estar vacía.' })
-  @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres.' })
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d\S]{8,}$/, {
-    message:
-      'La contraseña debe contener al menos una mayúscula, una minúscula y un número.',
+  @IsString({ message: 'El código debe ser texto' })
+  @IsNotEmpty({ message: 'El código es obligatorio' })
+  @Matches(/^\d{6}$/, {
+    message: 'El código debe ser exactamente 6 dígitos numéricos'
   })
+  code: string; // ✅ CAMBIO: 'code' en lugar de 'token'
+
+  @IsString({ message: 'La contraseña debe ser texto' })
+  @IsNotEmpty({ message: 'La contraseña es obligatoria' })
+  @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
   newPassword: string;
+}
+
+// ✅ NUEVO: DTO para verificar código
+export class VerifyResetCodeDto {
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\d{6}$/, {
+    message: 'El código debe ser exactamente 6 dígitos numéricos'
+  })
+  code: string;
 }
