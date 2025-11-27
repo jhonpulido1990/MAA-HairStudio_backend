@@ -110,40 +110,6 @@ export class AddressController {
     return result;
   }
 
-  // ✅ OBTENER PROVINCIAS VÁLIDAS DE ARGENTINA
-  @Get('utils/provinces')
-  async getArgentinaProvinces() {
-    // Importar las constantes directamente aquí para evitar dependencias circulares
-    const { ARGENTINA_PROVINCES } = await import('./constants/argentina-locations');
-
-    return {
-      success: true,
-      message: 'Provincias obtenidas exitosamente',
-      data: ARGENTINA_PROVINCES,
-    };
-  }
-
-  // ✅ OBTENER CIUDADES POR PROVINCIA
-  @Get('utils/cities/:province')
-  async getCitiesByProvince(@Param('province') province: string) {
-    const { MAJOR_CITIES, ARGENTINA_PROVINCES } = await import('./constants/argentina-locations');
-
-    // Validar que la provincia existe
-    if (!ARGENTINA_PROVINCES.includes(province as any)) {
-      throw new BadRequestException(`La provincia "${province}" no es válida para Argentina`);
-    }
-
-    const cities = MAJOR_CITIES[province as keyof typeof MAJOR_CITIES] || [];
-
-    return {
-      success: true,
-      message: 'Ciudades obtenidas exitosamente',
-      data: {
-        province,
-        cities,
-      },
-    };
-  }
 
   // ✅ ENDPOINT PARA ADMINS - Estadísticas de direcciones
   @Get('admin/stats')

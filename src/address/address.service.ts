@@ -16,11 +16,7 @@ import {
   AddressResponse,
   AddressValidationResponse,
 } from './interfaces/address-response.interface';
-import {
-  ARGENTINA_PROVINCES,
-  MAJOR_CITIES,
-  ArgentinaProvince,
-} from './constants/argentina-locations';
+
 
 @Injectable()
 export class AddressService {
@@ -114,9 +110,6 @@ export class AddressService {
     try {
       const { isDefault = false, ...addressData } = createAddressDto;
 
-      // Validar datos específicos de Argentina (sin código postal)
-      await this.validateArgentinaAddress(createAddressDto);
-
       // Si será la dirección por defecto, quitar default de otras direcciones
       if (isDefault) {
         await queryRunner.manager.update(Address, { userId, isActive: true }, { isDefault: false });
@@ -182,17 +175,6 @@ export class AddressService {
 
       if (!address) {
         throw new NotFoundException('Dirección no encontrada');
-      }
-
-      // Validar datos específicos de Argentina si se están actualizando (sin código postal)
-      if (
-        (updateAddressDto as any).province ||
-        (updateAddressDto as any).city
-      ) {
-        await this.validateArgentinaAddress({
-          ...address,
-          ...updateAddressDto,
-        } as CreateAddressDto);
       }
 
       // Si se está actualizando a dirección por defecto
@@ -387,28 +369,6 @@ export class AddressService {
       let validationNotes = '';
       const suggestions: any = {};
 
-      // Validar provincia
-      if (!ARGENTINA_PROVINCES.includes(address.province as ArgentinaProvince)) {
-        isValid = false;
-        validationNotes += 'Provincia no válida. ';
-        // Buscar provincia similar
-        const similarProvince = ARGENTINA_PROVINCES.find((p) =>
-          p.toLowerCase().includes(address.province.toLowerCase()),
-        );
-        if (similarProvince) {
-          suggestions.province = similarProvince;
-        }
-      }
-
-      // Validar si la ciudad corresponde a la provincia
-      const provinceCities = MAJOR_CITIES[address.province as keyof typeof MAJOR_CITIES];
-      if (provinceCities && !provinceCities.some((city) =>
-        city.toLowerCase() === address.city.toLowerCase(),
-      )) {
-        validationNotes += 'La ciudad podría no corresponder a la provincia. ';
-        suggestions.city = provinceCities[0]; // Sugerir la principal
-      }
-
       const validationStatus = isValid ? 'validated' : 'invalid';
 
       // Actualizar el status en la base de datos
@@ -469,25 +429,6 @@ export class AddressService {
         error,
       );
       throw new BadRequestException('Error al obtener dirección por defecto');
-    }
-  }
-
-  // ✅ MÉTODOS PRIVADOS AUXILIARES (SIN VALIDACIÓN DE CÓDIGO POSTAL)
-
-  private async validateArgentinaAddress(
-    addressDto: CreateAddressDto | any,
-  ): Promise<void> {
-    // Validar que la provincia sea válida
-    if (!ARGENTINA_PROVINCES.includes(addressDto.province as ArgentinaProvince)) {
-      throw new BadRequestException(
-        `La provincia "${addressDto.province}" no es válida para Argentina`,
-      );
-    }
-
-    // Validar formato de teléfono argentino
-    const phonePattern = /^(\+54|54)?[0-9]{8,12}$/;
-    if (!phonePattern.test(addressDto.phone)) {
-      throw new BadRequestException('El teléfono debe tener formato argentino válido');
     }
   }
 
