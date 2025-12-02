@@ -15,7 +15,7 @@ import { User } from '../users/user.entity';
 @Index('idx_addresses_user_id', ['userId'])
 @Index('idx_addresses_user_default', ['userId', 'isDefault'])
 @Index('idx_addresses_location', ['province', 'city']) // ✅ Cambio de department a province
-@Check('chk_addresses_phone_format', "phone ~ '^[+]?[0-9]{8,15}$'") // ✅ Validación formato teléfono argentino
+/* @Check('chk_addresses_phone_format', "phone ~ '^[+]?[0-9]{8,15}$'")  */// ✅ Validación formato teléfono argentino
 export class Address {
   @PrimaryGeneratedColumn('uuid')
   id: string;

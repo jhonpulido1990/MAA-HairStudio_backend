@@ -230,15 +230,37 @@ Equipo de MAA Hair Studio
     }
   }
 
+  // ✅ NUEVO: Validar fortaleza de contraseña (mismo método que AuthService)
+  private validatePasswordStrength(password: string): void {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    if (password.length < minLength) {
+      throw new BadRequestException('La contraseña debe tener al menos 8 caracteres.');
+    }
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
+      throw new BadRequestException(
+        'La contraseña debe contener al menos una mayúscula, una minúscula, un número y un carácter especial.'
+      );
+    }
+  }
+
   // ✅ MODIFICADO: Validar código de 6 dígitos en lugar de token
   async resetPassword(
-    code: string, // ✅ CAMBIO: Ahora recibe código en lugar de token
+    code: string,
     newPassword: string,
   ): Promise<{ message: string }> {
     // ✅ VALIDACIÓN: Verificar formato del código
     if (!/^\d{6}$/.test(code)) {
       throw new BadRequestException('El código debe ser de 6 dígitos numéricos.');
     }
+
+    // ✅ VALIDACIÓN: Fortaleza de contraseña
+    this.validatePasswordStrength(newPassword);
 
     // ✅ Buscar usuario por código
     const user = await this.userRepository.findOneBy({
@@ -256,14 +278,9 @@ Equipo de MAA Hair Studio
       throw new BadRequestException('El código ha expirado. Solicita uno nuevo.');
     }
 
-    // ✅ VALIDACIÓN: Contraseña segura
-    if (newPassword.length < 8) {
-      throw new BadRequestException('La contraseña debe tener al menos 8 caracteres.');
-    }
-
     try {
-      // ✅ Hashear nueva contraseña
-      user.password_hash = await bcrypt.hash(newPassword, 10);
+      // ✅ Hashear nueva contraseña con salt rounds más alto
+      user.password_hash = await bcrypt.hash(newPassword, 12); // ✅ CAMBIO: 10 → 12 rounds
       
       // ✅ IMPORTANTE: Limpiar código y expiración después de usarlo
       user.resetPasswordCode = undefined;

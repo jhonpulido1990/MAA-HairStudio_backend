@@ -524,7 +524,7 @@ export class CartService {
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       originalPrice: item.originalPrice,
-      subtotal: item.subtotal,
+      subtotal: item.subtotal / 1.21,
       totalDiscount: item.totalDiscount,
       isOnSale: item.isOnSale,
       note: item.note,
@@ -541,17 +541,17 @@ export class CartService {
 
     const totalItems = items.length;
     const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-    const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+    const subtotal = items.reduce((sum, item) => sum + item.subtotal /1.21, 0);
     const totalDiscount = items.reduce((sum, item) => sum + item.totalDiscount, 0);
-    const totalAmount = subtotal - totalDiscount;
-
     // Calcular impuestos estimados (19% en Colombia)
-    const estimatedTax = Number((totalAmount * 0.19).toFixed(2));
+    const estimatedTax = Number((subtotal * 0.21).toFixed(2));
+    
+    const totalAmount = subtotal + estimatedTax - totalDiscount;
 
     // Calcular envío estimado (gratis si es mayor a $100,000)
-    const estimatedShipping = totalAmount >= 100000 ? 0 : 15000;
+    const estimatedShipping = totalAmount >= 100000 ? 0 : 0;
 
-    const estimatedTotal = Number((totalAmount + estimatedTax + estimatedShipping).toFixed(2));
+    const estimatedTotal = Number((totalAmount + estimatedShipping).toFixed(2));
 
     return {
       totalItems,
