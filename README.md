@@ -126,3 +126,384 @@ PATCH /api/v1/orders/:orderId/status
   "status": "shipped",
   "notes": "Enviado por Servientrega"
 }
+
+# 🎨 MAA Hair Studio
+
+Sistema completo de gestión para salón de belleza con backend en **NestJS** y frontend en **Angular 20 con Server-Side Rendering (SSR)**.
+
+<p align="center">
+  <img src="https://nestjs.com/img/logo-small.svg" width="80" alt="NestJS Logo" />
+  <img src="https://angular.io/assets/images/logos/angular/angular.svg" width="80" alt="Angular Logo" />
+  <img src="https://www.docker.com/wp-content/uploads/2022/03/Moby-logo.png" width="80" alt="Docker Logo" />
+</p>
+
+## 📋 Características
+
+- ✅ **Backend**: API REST con NestJS + TypeORM + PostgreSQL
+- ✅ **Frontend**: Angular 20 con SSR para mejor SEO y performance
+- ✅ **Docker**: Completamente dockerizado con Docker Compose
+- ✅ **Hot-reload**: Desarrollo con recarga automática
+- ✅ **Multi-stage builds**: Imágenes optimizadas para producción
+- ✅ **Health checks**: Monitoreo automático de servicios
+- ✅ **Networking**: Comunicación segura entre contenedores
+
+## 📁 Estructura del Proyecto
+
+```
+MAA-HairStudio/
+├── MAA-HairStdio_Backend/      # API REST con NestJS
+│   ├── src/                    # Código fuente del backend
+│   ├── Dockerfile              # Imagen de producción
+│   ├── Dockerfile.dev          # Imagen de desarrollo
+│   └── .env                    # Variables de entorno
+├── MAA-HairStdio_Frontend/     # App web con Angular 20 SSR
+│   ├── src/                    # Código fuente del frontend
+│   ├── Dockerfile              # Imagen de producción con SSR
+│   ├── Dockerfile.dev          # Imagen de desarrollo
+│   └── angular.json            # Configuración de Angular
+├── docker-compose.yml          # Orquestación producción
+├── docker-compose.dev.yml      # Orquestación desarrollo
+└── README.md                   # Este archivo
+```
+
+## 🚀 Inicio Rápido
+
+### Requisitos Previos
+
+- **Docker** 20.10 o superior
+- **Docker Compose** v2.0 o superior (comando `docker compose` sin guion)
+- **Git** para clonar el repositorio
+
+### 🔧 Instalación
+
+```bash
+# 1. Clonar repositorio con submodules
+git clone --recurse-submodules https://github.com/tu-usuario/MAA-HairStudio.git
+cd MAA-HairStudio
+
+# 2. Configurar variables de entorno del backend
+cp MAA-HairStdio_Backend/.env.example MAA-HairStdio_Backend/.env
+
+# 3. Editar .env con tus credenciales (base de datos, JWT, etc.)
+nano MAA-HairStdio_Backend/.env
+```
+
+### 🔨 Desarrollo (con hot-reload)
+
+```bash
+# Levantar servicios de desarrollo
+docker compose -f docker-compose.dev.yml up -d
+
+# Ver logs en tiempo real
+docker compose -f docker-compose.dev.yml logs -f
+
+# Acceder a las aplicaciones:
+# - Frontend: http://localhost:4200 (sin SSR, con hot-reload)
+# - Backend:  http://localhost:3000/api/v1
+# - API Docs: http://localhost:3000/api/docs (Swagger)
+# - Health:   http://localhost:3000/api/health
+```
+
+### 🚢 Producción (con SSR)
+
+```bash
+# Construir y levantar servicios
+docker compose up -d --build
+
+# Ver logs
+docker compose logs -f
+
+# Acceder a las aplicaciones:
+# - Frontend: http://localhost (con SSR optimizado)
+# - Backend:  http://localhost:3000/api/v1
+```
+
+## 📦 Comandos Útiles
+
+### Gestión de Servicios
+
+```bash
+# Ver estado de contenedores
+docker compose ps
+
+# Ver logs de un servicio específico
+docker compose logs -f backend
+docker compose logs -f frontend
+
+# Reiniciar un servicio
+docker compose restart backend
+
+# Detener todos los servicios
+docker compose down
+
+# Detener y eliminar volúmenes
+docker compose down -v
+```
+
+### Desarrollo
+
+```bash
+# Reconstruir después de cambios en package.json
+docker compose -f docker-compose.dev.yml up -d --build
+
+# Entrar al contenedor del backend
+docker compose -f docker-compose.dev.yml exec backend-dev sh
+
+# Ejecutar migraciones
+docker compose -f docker-compose.dev.yml exec backend-dev npm run migration:run
+
+# Ejecutar tests del frontend
+docker compose -f docker-compose.dev.yml exec frontend-dev npm run test
+
+# Ver logs con timestamps
+docker compose -f docker-compose.dev.yml logs -t backend-dev
+```
+
+### Producción
+
+```bash
+# Reconstruir imágenes sin caché
+docker compose build --no-cache
+
+# Escalar servicios (si es necesario)
+docker compose up -d --scale backend=2
+
+# Ver uso de recursos
+docker stats
+
+# Backup de base de datos (si usas volumen local)
+docker compose exec backend pg_dump -U usuario -d basedatos > backup.sql
+```
+
+### Limpieza
+
+```bash
+# Detener servicios de desarrollo
+docker compose -f docker-compose.dev.yml down
+
+# Detener servicios de producción
+docker compose down
+
+# Eliminar imágenes del proyecto
+docker rmi maa-backend:prod maa-frontend:prod
+
+# Limpieza completa del sistema Docker
+docker system prune -a --volumes -f
+```
+
+## 🏗️ Arquitectura
+
+### Backend (NestJS)
+
+- **Framework**: NestJS con TypeScript
+- **Base de datos**: PostgreSQL (Neon)
+- **ORM**: TypeORM
+- **Puerto**: 3000
+- **Endpoints principales**:
+  - `GET /api/health` - Health check
+  - `GET /api/docs` - Documentación Swagger
+  - `POST /api/v1/auth/login` - Autenticación
+  - `GET /api/v1/products` - Listado de productos
+  - `POST /api/v1/orders/from-cart` - Crear orden
+
+### Frontend (Angular 20 SSR)
+
+- **Framework**: Angular 20
+- **SSR**: Server-Side Rendering con `@angular/ssr`
+- **Servidor**: Express.js
+- **Puerto**: 4200 (dev) / 80 (prod)
+- **Features**:
+  - Renderizado del lado del servidor para mejor SEO
+  - Hot-reload en desarrollo
+  - Build optimizado para producción
+
+### Networking
+
+Los servicios se comunican a través de redes Docker:
+
+- **Desarrollo**: `maa-network-dev`
+- **Producción**: `maa-network`
+
+El frontend puede acceder al backend usando el nombre del servicio:
+```typescript
+// Ejemplo en el frontend
+const API_URL = 'http://backend:3000/api/v1';
+```
+
+## 🔐 Variables de Entorno
+
+### Backend (.env)
+
+```bash
+# Base de datos PostgreSQL (Neon)
+PGHOST=tu-host.neon.tech
+PGUSER=usuario
+PGDATABASE=basedatos
+PGPASSWORD=tu_password
+
+# JWT
+JWT_SECRET=tu_secreto_jwt
+JWT_EXPIRES=3h
+
+# Email
+CORREO_PRUEBA=tu-email@gmail.com
+CODIGO_VERIFICACION=tu_codigo_app
+
+# Shippo API (envíos)
+SHIPPO_API_KEY=shippo_test_...
+```
+
+### Frontend (configurado en docker-compose.yml)
+
+```yaml
+environment:
+  - NODE_ENV=production
+  - PORT=4200
+  - API_URL=http://backend:3000/api/v1
+```
+
+## 📊 Monitoreo y Health Checks
+
+Los servicios incluyen health checks automáticos:
+
+```bash
+# Ver estado de health checks
+docker compose ps
+
+# Deberías ver "healthy" en ambos servicios:
+# maa-backend    ... Up (healthy)
+# maa-frontend   ... Up (healthy)
+```
+
+Si un servicio no está "healthy", revisa los logs:
+
+```bash
+docker compose logs backend
+```
+
+## 🐛 Troubleshooting
+
+### El backend no inicia
+
+```bash
+# Ver logs detallados
+docker compose logs backend
+
+# Verificar variables de entorno
+docker compose exec backend env | grep PG
+
+# Probar conexión a base de datos
+docker compose exec backend sh
+# Dentro del contenedor:
+npm run migration:run
+```
+
+### El frontend no conecta con el backend
+
+```bash
+# Verificar red Docker
+docker network inspect maa-network
+
+# Verificar que el backend responde
+docker compose exec frontend sh
+# Dentro del contenedor:
+wget -O- http://backend:3000/api/health
+```
+
+### Hot-reload no funciona en desarrollo
+
+```bash
+# Verificar que el volumen está montado
+docker compose -f docker-compose.dev.yml ps
+
+# Debería mostrar algo como:
+# ./MAA-HairStdio_Frontend/src:/app/src:delegated
+
+# Reconstruir si es necesario
+docker compose -f docker-compose.dev.yml down
+docker compose -f docker-compose.dev.yml up -d --build
+```
+
+### Puerto en uso
+
+Si el puerto 3000 o 4200 ya está en uso:
+
+```yaml
+# Editar docker-compose.yml
+ports:
+  - "3001:3000"  # Backend en puerto 3001
+  - "8080:4200"  # Frontend en puerto 8080
+```
+
+### Error de permisos en volúmenes
+
+```bash
+# En Linux, dar permisos a los directorios
+sudo chown -R $USER:$USER MAA-HairStdio_Backend/src
+sudo chown -R $USER:$USER MAA-HairStdio_Frontend/src
+```
+
+## 🚢 Deployment en Producción
+
+### Consideraciones
+
+1. **Cambiar credenciales**: Usa credenciales seguras en `.env`
+2. **HTTPS**: Configura un reverse proxy (Nginx/Traefik)
+3. **Base de datos**: Usa una instancia dedicada de PostgreSQL
+4. **Logs**: Implementa logging centralizado
+5. **Backups**: Configura backups automáticos
+
+### Ejemplo con Nginx como reverse proxy
+
+```nginx
+# nginx.conf
+server {
+    listen 80;
+    server_name tudominio.com;
+
+    location / {
+        proxy_pass http://localhost:80;  # Frontend
+    }
+
+    location /api {
+        proxy_pass http://localhost:3000;  # Backend
+    }
+}
+```
+
+## 📚 Documentación Adicional
+
+- [Documentación de NestJS](https://docs.nestjs.com)
+- [Documentación de Angular SSR](https://angular.io/guide/ssr)
+- [Documentación de Docker Compose](https://docs.docker.com/compose/)
+
+## 🤝 Contribución
+
+Las contribuciones son bienvenidas. Por favor:
+
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT.
+
+## 👨‍💻 Autor
+
+**Jhon Puli**
+- Email: pulidojj174@gmail.com
+- GitHub: [@jhon-puli](https://github.com/tu-usuario)
+
+## 🙏 Agradecimientos
+
+- [NestJS](https://nestjs.com/) - Framework backend
+- [Angular](https://angular.io/) - Framework frontend
+- [Docker](https://www.docker.com/) - Containerización
+- [Neon](https://neon.tech/) - PostgreSQL serverless
+
+---
+
+⭐ Si este proyecto te ayudó, considera darle una estrella en GitHub
