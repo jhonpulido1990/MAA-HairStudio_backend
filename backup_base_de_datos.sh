@@ -1,5 +1,5 @@
 #!/bin/bash
-# filepath: /home/jhon-puli/Documentos/portafolios/MAA-HairStudio/scripts/backup_database.sh
+# filepath: /home/jhon-puli/Documentos/portafolios/MAA-HairStudio/backup_base_de_datos.sh
 
 #==========================================
 # Script de Backup de Base de Datos
@@ -13,6 +13,24 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
+
+# Cargar variables de entorno desde .env
+ENV_FILE="./MAA-HairStdio_Backend/.env"
+
+if [ ! -f "$ENV_FILE" ]; then
+    echo -e "${RED}Error: Archivo .env no encontrado en $ENV_FILE${NC}"
+    exit 1
+fi
+
+# Cargar variables de entorno
+export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
+
+# Verificar que las variables estén cargadas
+if [ -z "$PGHOST" ] || [ -z "$PGUSER" ] || [ -z "$PGDATABASE" ] || [ -z "$PGPASSWORD" ]; then
+    echo -e "${RED}Error: Variables de entorno no cargadas correctamente${NC}"
+    echo "Verifica que tu .env contenga: PGHOST, PGUSER, PGDATABASE, PGPASSWORD"
+    exit 1
+fi
 
 # Configuración
 BACKUP_DIR="./backups"
@@ -51,24 +69,29 @@ check_pgdump() {
 # Función para realizar backup en formato custom (comprimido)
 backup_custom() {
     log "Iniciando backup en formato custom..."
+    log "Conectando a: $PGHOST"
+    log "Base de datos: $PGDATABASE"
+    log "Usuario: $PGUSER"
     
-    PGPASSWORD="npg_0wZIjUaC7lFH" pg_dump \
-        --host="ep-lingering-wind-ad9hacec-pooler.c-2.us-east-1.aws.neon.tech" \
-        --username="neondb_owner" \
-        --dbname="neondb" \
+    PGPASSWORD="$PGPASSWORD" pg_dump \
+        --host="$PGHOST" \
+        --username="$PGUSER" \
+        --dbname="$PGDATABASE" \
         --no-owner \
         --no-privileges \
         --format=custom \
+        --compress=9 \
         --file="$BACKUP_DIR/$BACKUP_FILE" \
         --verbose 2>&1 | tee -a "$LOG_FILE"
     
-    if [ $? -eq 0 ]; then
+    if [ ${PIPESTATUS[0]} -eq 0 ] && [ -s "$BACKUP_DIR/$BACKUP_FILE" ]; then
         log "✓ Backup custom completado: $BACKUP_FILE"
         echo -e "${GREEN}✓ Backup completado exitosamente${NC}"
+        return 0
     else
-        log "✗ Error al crear backup custom"
+        log "✗ Error al crear backup custom o archivo vacío"
         echo -e "${RED}✗ Error al crear backup${NC}"
-        exit 1
+        return 1
     fi
 }
 
@@ -85,23 +108,26 @@ backup_sql() {
         --file="$BACKUP_DIR/$BACKUP_SQL" \
         --verbose 2>&1 | tee -a "$LOG_FILE"
     
-    if [ $? -eq 0 ]; then
+    if [ ${PIPESTATUS[0]} -eq 0 ] && [ -s "$BACKUP_DIR/$BACKUP_SQL" ]; then
         log "✓ Backup SQL completado: $BACKUP_SQL"
         echo -e "${GREEN}✓ Backup SQL completado exitosamente${NC}"
+        return 0
     else
-        log "✗ Error al crear backup SQL"
+        log "✗ Error al crear backup SQL o archivo vacío"
         echo -e "${RED}✗ Error al crear backup SQL${NC}"
-        exit 1
+        return 1
     fi
 }
 
 # Función para comprimir backup SQL con gzip
 compress_sql() {
-    if [ -f "$BACKUP_DIR/$BACKUP_SQL" ]; then
+    if [ -f "$BACKUP_DIR/$BACKUP_SQL" ] && [ -s "$BACKUP_DIR/$BACKUP_SQL" ]; then
         log "Comprimiendo backup SQL..."
-        gzip "$BACKUP_DIR/$BACKUP_SQL"
+        gzip -9 "$BACKUP_DIR/$BACKUP_SQL"
         log "✓ Backup comprimido: ${BACKUP_SQL}.gz"
         echo -e "${GREEN}✓ Backup comprimido exitosamente${NC}"
+    else
+        log "✗ Archivo SQL no encontrado o vacío, saltando compresión"
     fi
 }
 
@@ -112,18 +138,22 @@ show_backup_info() {
     echo -e "${YELLOW}  Información del Backup${NC}"
     echo -e "${YELLOW}========================================${NC}"
     
-    if [ -f "$BACKUP_DIR/$BACKUP_FILE" ]; then
+    if [ -f "$BACKUP_DIR/$BACKUP_FILE" ] && [ -s "$BACKUP_DIR/$BACKUP_FILE" ]; then
         SIZE=$(du -h "$BACKUP_DIR/$BACKUP_FILE" | cut -f1)
-        echo -e "${GREEN}Archivo custom:${NC} $BACKUP_FILE"
-        echo -e "${GREEN}Tamaño:${NC} $SIZE"
-        echo -e "${GREEN}Ubicación:${NC} $BACKUP_DIR/$BACKUP_FILE"
+        echo -e "${GREEN}✓ Archivo custom:${NC} $BACKUP_FILE"
+        echo -e "${GREEN}  Tamaño:${NC} $SIZE"
+        echo -e "${GREEN}  Ubicación:${NC} $BACKUP_DIR/$BACKUP_FILE"
+    else
+        echo -e "${RED}✗ Archivo custom no generado o vacío${NC}"
     fi
     
-    if [ -f "$BACKUP_DIR/${BACKUP_SQL}.gz" ]; then
+    if [ -f "$BACKUP_DIR/${BACKUP_SQL}.gz" ] && [ -s "$BACKUP_DIR/${BACKUP_SQL}.gz" ]; then
         SIZE=$(du -h "$BACKUP_DIR/${BACKUP_SQL}.gz" | cut -f1)
-        echo -e "${GREEN}Archivo SQL:${NC} ${BACKUP_SQL}.gz"
-        echo -e "${GREEN}Tamaño:${NC} $SIZE"
-        echo -e "${GREEN}Ubicación:${NC} $BACKUP_DIR/${BACKUP_SQL}.gz"
+        echo -e "${GREEN}✓ Archivo SQL:${NC} ${BACKUP_SQL}.gz"
+        echo -e "${GREEN}  Tamaño:${NC} $SIZE"
+        echo -e "${GREEN}  Ubicación:${NC} $BACKUP_DIR/${BACKUP_SQL}.gz"
+    else
+        echo -e "${RED}✗ Archivo SQL no generado o vacío${NC}"
     fi
     
     echo -e "${GREEN}Log:${NC} $LOG_FILE"
@@ -134,10 +164,17 @@ show_backup_info() {
 cleanup_old_backups() {
     echo -e "${YELLOW}Limpiando backups antiguos...${NC}"
     
-    # Mantener solo los últimos 7 backups
+    # Mantener solo los últimos 7 backups válidos (no vacíos)
     cd "$BACKUP_DIR"
+    
+    # Eliminar backups vacíos primero
+    find . -name "maa_hairstudio_backup_*.dump" -size 0 -delete
+    find . -name "maa_hairstudio_backup_*.sql.gz" -size 0 -delete
+    
+    # Mantener últimos 7 backups
     ls -t maa_hairstudio_backup_*.dump 2>/dev/null | tail -n +8 | xargs -r rm -f
     ls -t maa_hairstudio_backup_*.sql.gz 2>/dev/null | tail -n +8 | xargs -r rm -f
+    
     cd - > /dev/null
     
     log "✓ Backups antiguos eliminados (manteniendo últimos 7)"
@@ -155,9 +192,13 @@ main() {
     check_pgdump
     
     # Realizar backups
-    backup_custom
-    backup_sql
-    compress_sql
+    if backup_custom; then
+        backup_sql
+        compress_sql
+    else
+        echo -e "${RED}Error crítico: No se pudo generar el backup${NC}"
+        exit 1
+    fi
     
     # Limpiar backups antiguos
     cleanup_old_backups

@@ -9,8 +9,6 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Cargar variables de entorno
-source "../MAA-HairStdio_Backend/.env"
 
 echo -e "${YELLOW}========================================${NC}"
 echo -e "${YELLOW}  Restaurar Base de Datos${NC}"
@@ -42,10 +40,10 @@ fi
 echo -e "${YELLOW}Restaurando base de datos...${NC}"
 
 # Restaurar backup
-PGPASSWORD="$PGPASSWORD" pg_restore \
-    --host="$PGHOST" \
-    --username="$PGUSER" \
-    --dbname="$PGDATABASE" \
+PGPASSWORD="npg_XPKpFZnjc27M" pg_restore \
+    --host="ep-misty-butterfly-ac028bgl-pooler.sa-east-1.aws.neon.tech" \
+    --username="neondb_owner" \
+    --dbname="neondb" \
     --clean \
     --if-exists \
     --no-owner \
