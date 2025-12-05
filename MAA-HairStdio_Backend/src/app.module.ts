@@ -52,7 +52,7 @@ import { HealthModule } from './healt/healt.module';
           },
         },
         defaults: {
-          from: '"No Reply" <no-reply@tudominio.com>',
+          from: '"No Reply" <hairstudiomaa@gmail.com>',
         },
       }),
     }),

@@ -11,7 +11,7 @@ COPY tsconfig*.json ./
 COPY nest-cli.json ./
 
 # Instalar TODAS las dependencias (incluyendo devDependencies para compilar)
-RUN npm install
+# RUN npm install
 # Alternativa más limpia:
 RUN npm ci
 RUN npm cache clean --force
