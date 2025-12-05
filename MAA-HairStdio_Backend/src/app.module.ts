@@ -15,6 +15,7 @@ import { CartModule } from './cart/cart.module';
 import { AddressModule } from './address/address.module';
 /* import { ShippoModule } from './shippo/shippo.module'; */
 import { OrdersModule } from './orders/orders.module';
+import { HealthModule } from './healt/healt.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -65,6 +66,7 @@ import { OrdersModule } from './orders/orders.module';
     /* OrdersModule, */
     AddressModule,
     OrdersModule,
+    HealthModule,
     /* ShippoModule, */
   ],
   controllers: [AppController],
