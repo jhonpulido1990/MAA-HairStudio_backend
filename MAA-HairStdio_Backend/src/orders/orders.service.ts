@@ -49,15 +49,29 @@ export class OrdersService {
     try {
       const { deliveryType, shippingAddressId, notes } = createOrderDto;
 
-      // 1. Obtener carrito del usuario
+      // 1. Obtener carrito del usuario - ✅ CORREGIDO
       const cart = await this.cartRepository.findOne({
-        where: { user: { id: userId } },
+        where: { 
+          userId: userId,  // ✅ Cambio: usar userId directamente
+          status: 'active' // ✅ Agregar: solo carritos activos
+        },
         relations: ['items', 'items.product'],
       });
 
-      if (!cart || cart.items.length === 0) {
+      // ✅ MEJORADO: Logging para debugging
+      if (!cart) {
+        this.logger.error(`No se encontró carrito activo para usuario ${userId}`);
+        throw new BadRequestException('No tienes un carrito activo');
+      }
+
+      if (!cart.items || cart.items.length === 0) {
+        this.logger.warn(`Carrito ${cart.id} del usuario ${userId} está vacío`);
         throw new BadRequestException('El carrito está vacío');
       }
+
+      this.logger.log(
+        `Carrito encontrado para usuario ${userId}: ${cart.items.length} items`
+      );
 
       // 2. Validar stock de productos
       for (const item of cart.items) {
