@@ -40,10 +40,11 @@ fi
 echo -e "${YELLOW}Restaurando base de datos...${NC}"
 
 # Restaurar backup
-PGPASSWORD="npg_XPKpFZnjc27M" pg_restore \
-    --host="ep-misty-butterfly-ac028bgl-pooler.sa-east-1.aws.neon.tech" \
-    --username="neondb_owner" \
-    --dbname="neondb" \
+# Restaurar backup
+PGPASSWORD="oAsCLVKDK1uNXUibOu3fDuKAofhlwLxs" pg_restore \
+    --host="dpg-d4q8g1er433s73ai0glg-a.virginia-postgres.render.com" \
+    --username="maabbdd_user" \
+    --dbname="maabbdd" \
     --clean \
     --if-exists \
     --no-owner \

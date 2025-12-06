@@ -5,16 +5,21 @@ FROM node:20.11-alpine AS builder
 
 WORKDIR /app
 
+# Configurar npm con timeouts MUY largos
+RUN npm config set fetch-timeout 900000 && \
+  npm config set fetch-retries 10 && \
+  npm config set fetch-retry-mintimeout 200000 && \
+  npm config set fetch-retry-maxtimeout 900000 && \
+  npm config set maxsockets 5
+
 # Copiar archivos de dependencias
 COPY package*.json ./
 COPY tsconfig*.json ./
 COPY nest-cli.json ./
 
 # Instalar TODAS las dependencias (incluyendo devDependencies para compilar)
-# RUN npm install
 # Alternativa más limpia:
-RUN npm ci
-RUN npm cache clean --force
+  RUN npm install --prefer-offline --no-audit
 
 # Copiar código fuente
 COPY src ./src
@@ -37,7 +42,7 @@ COPY package*.json ./
 
 # Instalar solo dependencias de producción
 RUN npm install --prefer-offline --no-audit
-RUN npm cache clean --force
+
 
 # Copiar aplicación compilada desde builder
 COPY --from=builder /app/dist ./dist
