@@ -35,8 +35,9 @@ export class CartService {
   // ✅ OBTENER O CREAR CARRITO DEL USUARIO
   async getOrCreateCart(userId: string): Promise<Cart> {
     try {
+      // ✅ CAMBIO: Quitar filtro de status
       let cart = await this.cartRepository.findOne({
-        where: { userId, status: 'active' },
+        where: { userId }, // ✅ Solo buscar por userId
         relations: ['items', 'items.product', 'items.product.subcategory'],
       });
 
@@ -50,6 +51,15 @@ export class CartService {
         });
         cart = await this.cartRepository.save(cart);
         this.logger.log(`Nuevo carrito creado para usuario ${userId}`);
+      }
+
+      // ✅ AGREGAR: Asegurar que status sea 'active'
+      if (cart.status !== 'active') {
+        await this.cartRepository.update(cart.id, {
+          status: 'active',
+          lastActivityAt: new Date(),
+        });
+        cart.status = 'active';
       }
 
       return cart;

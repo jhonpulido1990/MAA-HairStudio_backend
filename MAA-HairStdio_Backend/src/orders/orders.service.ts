@@ -13,6 +13,7 @@ import { Cart } from '../cart/cart.entity';
 import { Product } from '../products/product.entity';
 import { User, UserRole } from '../users/user.entity';
 import { AddressService } from '../address/address.service';
+import { CartService } from '../cart/cart.service';  // ✅ Agregar import
 import { 
   CreateOrderFromCartDto, 
   UpdateOrderStatusDto 
@@ -34,6 +35,7 @@ export class OrdersService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private addressService: AddressService,
+    private cartService: CartService,  // ✅ Agregar inyección
     private dataSource: DataSource,
   ) {}
 
@@ -49,29 +51,16 @@ export class OrdersService {
     try {
       const { deliveryType, shippingAddressId, notes } = createOrderDto;
 
-      // 1. Obtener carrito del usuario - ✅ CORREGIDO
-      const cart = await this.cartRepository.findOne({
-        where: { 
-          userId: userId,  // ✅ Cambio: usar userId directamente
-          status: 'active' // ✅ Agregar: solo carritos activos
-        },
-        relations: ['items', 'items.product'],
-      });
+      // ✅ CAMBIO: Usar CartService en lugar de consulta directa
+      this.logger.log(`🔍 Obteniendo carrito para usuario: ${userId}`);
+      const cart = await this.cartService.getOrCreateCart(userId);
 
-      // ✅ MEJORADO: Logging para debugging
-      if (!cart) {
-        this.logger.error(`No se encontró carrito activo para usuario ${userId}`);
-        throw new BadRequestException('No tienes un carrito activo');
-      }
+      this.logger.log(`✅ Carrito: ${cart.id}, Items: ${cart.items?.length || 0}`);
 
       if (!cart.items || cart.items.length === 0) {
-        this.logger.warn(`Carrito ${cart.id} del usuario ${userId} está vacío`);
+        this.logger.error(`❌ Carrito vacío`);
         throw new BadRequestException('El carrito está vacío');
       }
-
-      this.logger.log(
-        `Carrito encontrado para usuario ${userId}: ${cart.items.length} items`
-      );
 
       // 2. Validar stock de productos
       for (const item of cart.items) {
