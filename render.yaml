@@ -10,7 +10,7 @@ services:
     branch: main
     dockerfilePath: ./MAA-HairStdio_Backend/Dockerfile
     dockerContext: ./MAA-HairStdio_Backend
-    healthCheckPath: /api/health
+    healthCheckPath: /api/v1/health
     numInstances: 1
     envVars:
       # Node Environment

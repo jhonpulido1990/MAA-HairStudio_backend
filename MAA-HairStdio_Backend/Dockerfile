@@ -27,6 +27,9 @@ RUN npm run build
 # ================================
 FROM node:20.11-alpine AS production
 
+# Instalar curl para health checks (más confiable que node)
+RUN apk add --no-cache curl
+
 # Establecer entorno de producción
 ENV NODE_ENV=production
 
@@ -36,7 +39,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar solo dependencias de producción
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci --only=production
+RUN npm cache clean --force
 
 # Copiar aplicación compilada desde builder
 COPY --from=builder /app/dist ./dist
@@ -53,7 +57,7 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/v1/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD curl -f http://localhost:3000/api/v1/health || exit 1
 
 # Comando de inicio
 CMD ["node", "dist/main.js"]
