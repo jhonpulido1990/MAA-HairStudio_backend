@@ -8,10 +8,17 @@ services:
     plan: free
     region: oregon
     branch: main
-    dockerfilePath: ./MAA-HairStdio_Backend/Dockerfile
-    dockerContext: ./MAA-HairStdio_Backend
+    
+    # ✅ Indicar el directorio raíz del servicio
+    rootDir: MAA-HairStdio_Backend
+    
+    # Las rutas ahora son relativas a rootDir
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    
     healthCheckPath: /api/v1/health
     numInstances: 1
+    
     envVars:
       # Node Environment
       - key: NODE_ENV
@@ -64,7 +71,7 @@ services:
         - MAA-HairStdio_Backend/.env
 
   # ================================
-  # Frontend Angular SSR
+  # Frontend Angular SSR (Submódulo)
   # ================================
   - type: web
     name: maa-frontend
@@ -72,10 +79,17 @@ services:
     plan: free
     region: oregon
     branch: main
-    dockerfilePath: ./MAA-HairStdio_Frontend/Dockerfile
-    dockerContext: ./MAA-HairStdio_Frontend
+    
+    # ✅ Indicar el directorio raíz del submódulo
+    rootDir: MAA-HairStdio_Frontend
+    
+    # Las rutas ahora son relativas a rootDir
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    
     healthCheckPath: /
     numInstances: 1
+
     envVars:
       - key: NODE_ENV
         value: production
@@ -90,7 +104,6 @@ services:
     autoDeploy: true
     
     buildFilter:
-      submodules: true
       paths:
         - MAA-HairStdio_Frontend/**
       ignoredPaths:
