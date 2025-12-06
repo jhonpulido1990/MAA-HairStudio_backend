@@ -95,6 +95,3 @@ services:
       ignoredPaths:
         - MAA-HairStdio_Frontend/node_modules/**
         - MAA-HairStdio_Frontend/.angular/**
-
-    dependsOn:
-      - name: maa-backend
