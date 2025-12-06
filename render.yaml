@@ -90,6 +90,7 @@ services:
     autoDeploy: true
     
     buildFilter:
+      submodules: true
       paths:
         - MAA-HairStdio_Frontend/**
       ignoredPaths:
