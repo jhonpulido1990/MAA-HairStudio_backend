@@ -236,15 +236,15 @@ Equipo de MAA Hair Studio
     const hasUpperCase = /[A-Z]/.test(password);
     const hasLowerCase = /[a-z]/.test(password);
     const hasNumbers = /\d/.test(password);
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    /* const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password); */
 
     if (password.length < minLength) {
       throw new BadRequestException('La contraseña debe tener al menos 8 caracteres.');
     }
 
-    if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
+    if (!hasUpperCase || !hasLowerCase || !hasNumbers ) {
       throw new BadRequestException(
-        'La contraseña debe contener al menos una mayúscula, una minúscula, un número y un carácter especial.'
+        'La contraseña debe contener al menos una mayúscula, una minúscula y un número.'
       );
     }
   }
@@ -517,6 +517,9 @@ Equipo de MAA Hair Studio
 
     if (updateUserDto.name) user.name = updateUserDto.name;
     if (updateUserDto.email) user.email = updateUserDto.email;
+    if (updateUserDto.phone) user.phone = updateUserDto.phone;
+    if (updateUserDto.address) user.address = updateUserDto.address;
+    if (updateUserDto.address2) user.address2 = updateUserDto.address2;
 
     await this.userRepository.save(user);
     return user;
@@ -638,7 +641,7 @@ Equipo de MAA Hair Studio
 
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'name', 'email', 'role', 'createdAt'],
+      select: ['id', 'name', 'email', 'role', 'createdAt', 'phone', 'address', 'address2'],
     });
 
     if (!user) {
