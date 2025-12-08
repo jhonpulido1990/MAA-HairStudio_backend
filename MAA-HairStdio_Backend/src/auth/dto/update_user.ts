@@ -8,4 +8,16 @@ export class UpdateUserDto {
   @IsOptional()
   @IsEmail({}, { message: 'El correo electrónico no es válido.' })
   email?: string;
+
+  @IsOptional()
+  @IsString({ message: 'El teléfono debe ser una cadena de texto.' })
+  phone?: string;
+
+  @IsOptional()
+  @IsString({ message: 'La dirección debe ser una cadena de texto.' })
+  address?: string;
+
+  @IsOptional()
+  @IsString({ message: 'La dirección 2 debe ser una cadena de texto.' })
+  address2?: string;
 }
