@@ -51,14 +51,28 @@ export class OrdersService {
     try {
       const { deliveryType, shippingAddressId, notes } = createOrderDto;
 
-      // ✅ CAMBIO: Usar CartService en lugar de consulta directa
+      // ✅ CAMBIO: Obtener carrito FUERA de la transacción primero
       this.logger.log(`🔍 Obteniendo carrito para usuario: ${userId}`);
-      const cart = await this.cartService.getOrCreateCart(userId);
+      const cartInitial = await this.cartService.getOrCreateCart(userId);
+      
+      this.logger.log(`✅ Carrito obtenido ANTES de transacción:`, {
+        cartId: cartInitial.id,
+        itemsCount: cartInitial.items?.length || 0,
+      });
 
-      this.logger.log(`✅ Carrito: ${cart.id}, Items: ${cart.items?.length || 0}`);
+      // ✅ DENTRO de la transacción, recargar el carrito usando queryRunner
+      const cart = await queryRunner.manager.findOne(Cart, {
+        where: { id: cartInitial.id },
+        relations: ['items', 'items.product'],
+      });
 
-      if (!cart.items || cart.items.length === 0) {
-        this.logger.error(`❌ Carrito vacío`);
+      this.logger.log(`✅ Carrito reloaded DENTRO de transacción:`, {
+        cartId: cart?.id,
+        itemsCount: cart?.items?.length || 0,
+      });
+
+      if (!cart || !cart.items || cart.items.length === 0) {
+        this.logger.error(`❌ Carrito vacío después de reload dentro transacción`);
         throw new BadRequestException('El carrito está vacío');
       }
 

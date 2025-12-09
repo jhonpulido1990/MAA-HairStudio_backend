@@ -32,16 +32,19 @@ export class CartService {
     private readonly dataSource: DataSource,
   ) {}
 
-  // ✅ OBTENER O CREAR CARRITO DEL USUARIO
+// ✅ OBTENER O CREAR CARRITO DEL USUARIO
   async getOrCreateCart(userId: string): Promise<Cart> {
     try {
-      // ✅ CAMBIO: Quitar filtro de status
+      this.logger.debug(`📦 Obteniendo carrito para usuario: ${userId}`);
+      
+      // PASO 1: Buscar carrito base SIN relaciones
       let cart = await this.cartRepository.findOne({
-        where: { userId }, // ✅ Solo buscar por userId
-        relations: ['items', 'items.product', 'items.product.subcategory'],
+        where: { userId },
       });
 
+      // PASO 2: Si no existe, crear uno
       if (!cart) {
+        this.logger.debug(`📦 Creando nuevo carrito para usuario ${userId}`);
         cart = this.cartRepository.create({
           userId,
           status: 'active',
@@ -50,24 +53,38 @@ export class CartService {
           lastActivityAt: new Date(),
         });
         cart = await this.cartRepository.save(cart);
-        this.logger.log(`Nuevo carrito creado para usuario ${userId}`);
+        cart.items = [];
+        return cart;
       }
 
-      // ✅ AGREGAR: Asegurar que status sea 'active'
+      // PASO 3: Actualizar a active si es necesario
       if (cart.status !== 'active') {
         await this.cartRepository.update(cart.id, {
           status: 'active',
           lastActivityAt: new Date(),
         });
-        cart.status = 'active';
       }
 
+      // PASO 4: CRÍTICO - Cargar items SOLO si existen, usando QueryBuilder
+      const cartWithItems = await this.cartRepository
+        .createQueryBuilder('cart')
+        .where('cart.id = :cartId', { cartId: cart.id })
+        .leftJoinAndSelect('cart.items', 'items')
+        .leftJoinAndSelect('items.product', 'product')
+        .leftJoinAndSelect('product.subcategory', 'subcategory')
+        .getOne();
+
+      if (cartWithItems?.items) {
+        cart.items = cartWithItems.items;
+      } else {
+        cart.items = [];
+      }
+
+      this.logger.debug(`📦 Carrito obtenido: ID=${cart.id}, Items=${cart.items.length}`);
       return cart;
+
     } catch (error) {
-      this.logger.error(
-        `Error al obtener/crear carrito para usuario ${userId}:`,
-        error,
-      );
+      this.logger.error(`Error al obtener carrito: ${error.message}`);
       throw new BadRequestException('Error al acceder al carrito');
     }
   }
