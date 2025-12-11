@@ -133,7 +133,7 @@ export class OrdersService {
 
       // 4. Calcular totales (SIN COSTO DE ENVÍO)
       const subtotal = cart.items.reduce((sum, item) => {
-        const price = Number(item.product.finalPrice || item.product.price);
+        const price = Number(item.product.finalPrice || item.product.price)/1.21;
         return sum + (price * item.quantity);
       }, 0);
 
