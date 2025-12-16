@@ -74,7 +74,7 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El precio original debe ser un número con máximo 2 decimales.' })
-  @Min(0.01, { message: 'El precio original debe ser mayor a 0.' })
+  @Min(0.00, { message: 'El precio original debe ser mayor a 0.' })
   @Max(999999.99, { message: 'El precio original no puede exceder 999,999.99.' })
   @Type(() => Number)
   originalPrice?: number;
