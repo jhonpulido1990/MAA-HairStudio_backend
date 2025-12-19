@@ -55,7 +55,7 @@ export enum HairType {
 export enum DesiredResult {
   HIDRATACION = 'Hidratación',
   VOLUMEN = 'Volumen',
-  ANTICASPA = 'Anticaspa',
+  ANTI_CASPA = 'Anti-caspa',
   REPARACION = 'Reparación',
   BRILLO = 'Brillo',
   CONTROL_GRASA = 'Control de grasa',
